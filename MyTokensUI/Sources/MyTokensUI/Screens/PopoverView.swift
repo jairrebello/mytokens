@@ -11,7 +11,19 @@ import MyTokensCore
 import SwiftUI
 
 public struct PopoverView: View {
-    @Environment(\.palette) private var p
+    @Environment(\.colorScheme) private var scheme
+
+    /// A paleta desta tela — resolvida do TEMA, não lida do ambiente. O MESMO bug que estava
+    /// na `MainWindowView`: o `.theme(theme)` do fim do corpo injeta a paleta pros FILHOS, mas
+    /// o corpo daqui (a superfície, o cabeçalho, o rodapé) já leu o `@Environment(\.palette)`
+    /// antes de o modifier existir, e pegava o PADRÃO — bancada escuro. No popover o sintoma
+    /// era mais silencioso que na janela e por isso durou mais: a `.ultraThinMaterial` por
+    /// baixo disfarçava a superfície errada. Mas no tema Terminal o rodapé saía em bone sobre
+    /// o fósforo verde das pistas. Uma tela, dois temas.
+    ///
+    /// A view SABE qual é o tema — é parâmetro dela. Então resolve a própria paleta e injeta
+    /// a mesma pros filhos.
+    private var p: Palette { theme.palette(for: scheme) }
 
     public let snapshot: Dashboard
     public var onOpenWindow: () -> Void = {}
@@ -250,6 +262,22 @@ struct AppMenu: View {
                         Label(t.label, systemImage: t == controls.theme ? "checkmark" : "")
                     }
                 }
+            }
+
+            Divider()
+            // O hook do statusLine. O rótulo CARREGA o estado, porque este é o único item do
+            // menu que fala de um arquivo que o app escreveu na casa do usuário — e ele tem
+            // direito de saber disso sem clicar. "Quebrado" aparece em voz alta: significa que
+            // a statusline dele não está sendo desenhada AGORA, e a culpa é nossa.
+            switch controls.hook {
+            case .ausente:
+                Button("Conectar o Claude (instalar o hook)…", action: controls.openHookPanel)
+            case .instalado:
+                Button("Hook do statusLine: instalado…", action: controls.openHookPanel)
+            case .quebrado:
+                Button("Hook do statusLine: QUEBRADO…", action: controls.openHookPanel)
+            case .indeciso:
+                EmptyView()   // sem settings.json legível não há o que oferecer. Silêncio > chute.
             }
 
             Divider()

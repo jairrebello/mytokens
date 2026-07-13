@@ -59,7 +59,10 @@ enum Shot: String, CaseIterable {
     var size: CGSize {
         switch self {
         case .lanes: CGSize(width: 700, height: 420)
-        case .window, .windowAlmost, .realWindow, .realTerminalWindow: CGSize(width: 960, height: 560)
+        // A janela cresceu: ela ganhou o PASSADO (o trilho de 30 dias, onde foi, em que
+        // modelo). Fotografar a bancada nova em 560 pt cortaria fora exatamente o que há
+        // de novo pra olhar.
+        case .window, .windowAlmost, .realWindow, .realTerminalWindow: CGSize(width: 960, height: 900)
         default: CGSize(width: 380, height: 560)   // popover + folga pro desktop
         }
     }

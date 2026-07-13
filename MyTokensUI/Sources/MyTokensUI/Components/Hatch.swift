@@ -15,17 +15,39 @@
 
 import SwiftUI
 
-/// Listras verticais 1 px on / 3 px off. O `phase` desloca o padrão pra que a
-/// tinta reticulada de um trecho composto continue o mesmo grid do trecho
-/// medido, em vez de recomeçar do zero e criar uma emenda falsa.
+/// Listras 1 px on / 3 px off. O `phase` desloca o padrão pra que a tinta
+/// reticulada de um trecho composto continue o mesmo grid do trecho medido, em
+/// vez de recomeçar do zero e criar uma emenda falsa.
+///
+/// A listra é sempre PERPENDICULAR ao sentido em que a tinta cresce. Na pista a
+/// tinta anda pra direita, então a listra é vertical; na coluna do trilho de 30
+/// dias ela SOBE, e a listra deita. Não é gosto: listra paralela ao avanço vira
+/// um cabo de vassoura que o olho lê como uma linha só — e o reticulado só
+/// significa "estimado" enquanto ele se lê como TEXTURA.
+///
+/// No modo deitado o grid ancora na BASE, não no topo: a coluna cresce pra cima,
+/// e um padrão preso ao topo escorreria a cada centavo novo. Listra que se mexe
+/// sozinha é movimento sem dado — o pecado do §6.
 struct Hatch: View {
     var color: Color
     var on: CGFloat = 1
     var off: CGFloat = 3
     var phase: CGFloat = 0
+    var horizontal: Bool = false
 
     var body: some View {
         Canvas(rendersAsynchronously: false) { ctx, size in
+            guard !horizontal else {
+                var y = size.height - on
+                while y > -on {
+                    ctx.fill(
+                        Path(CGRect(x: 0, y: y, width: size.width, height: on)),
+                        with: .color(color)
+                    )
+                    y -= on + off
+                }
+                return
+            }
             var x = -phase.truncatingRemainder(dividingBy: on + off)
             while x < size.width {
                 ctx.fill(

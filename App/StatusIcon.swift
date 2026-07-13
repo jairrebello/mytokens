@@ -195,12 +195,16 @@ enum StatusIcon {
         return (clamped / 5).rounded() * 5 / 100
     }
 
+    /// O VOCABULÁRIO É UM SÓ. A proveta dizia "Limite estourado" e "Sem dado de uso"
+    /// enquanto a pista, a três centímetros dali, dizia "Passou do teto" e "sem dado
+    /// local". Duas palavras pro mesmo fato é o começo de duas verdades — e pra quem
+    /// navega de VoiceOver, a barra e a janela viram dois apps diferentes.
     private static func describe(_ state: State) -> String {
         switch state {
-        case .noData: "Sem dado de uso"
+        case .noData: "Sem dado local de uso"
         case .measured(let l): "Uso medido: \(Int(l * 100))%"
         case .derived(let l): "Uso estimado: \(Int(l * 100))%"
-        case .overflow: "Limite estourado"
+        case .overflow: "Passou do teto"
         case .paused: "Monitoramento pausado"
         }
     }

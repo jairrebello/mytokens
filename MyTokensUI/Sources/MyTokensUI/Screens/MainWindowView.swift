@@ -12,11 +12,24 @@ import MyTokensCore
 import SwiftUI
 
 public struct MainWindowView: View {
-    @Environment(\.palette) private var p
+    @Environment(\.colorScheme) private var scheme
 
     public let snapshot: Dashboard
     public var onConnect: (Provider) -> Void = { _ in }
     public var theme: Theme = .bancada
+
+    /// A paleta desta tela — resolvida do TEMA, não lida do ambiente.
+    ///
+    /// Isto conserta um bug que estava aqui desde que o tema virou opção: o `.theme(theme)`
+    /// lá embaixo injeta a paleta pros FILHOS (as pistas, os números, a legenda), mas o
+    /// corpo desta view já leu o `@Environment(\.palette)` ANTES do modifier existir — e
+    /// pegava o valor PADRÃO do `PaletteKey`, que é o bancada escuro. Resultado: em light,
+    /// a janela desenhava fundo preto com trilhos claros; no Terminal, o canvas e o veredito
+    /// saíam em bone enquanto as pistas saíam em fósforo verde. A tela obedecia a dois temas.
+    ///
+    /// A view SABE qual é o tema (é parâmetro dela). Então ela resolve a própria paleta e
+    /// injeta a mesma pros filhos. Uma fonte de verdade, como tudo aqui.
+    private var p: Palette { theme.palette(for: scheme) }
 
     public init(
         snapshot: Dashboard,
@@ -30,11 +43,27 @@ public struct MainWindowView: View {
 
     private var verdict: Verdict { .of(snapshot) }
 
+    /// O passado só é desenhado quando existe passado.
+    ///
+    /// Duas coisas o escondem, e as duas são a mesma coisa dita de dois jeitos:
+    ///   • `.empty` — o motor ainda não leu (antes do 1º scan). Trinta colunas de nada
+    ///     enquanto ele varre 1,4 GB seriam um instrumento afirmando o que não mediu.
+    ///   • sem UM dia de registro — 30 hachuras não informam ninguém. Elas gastariam meia
+    ///     tela pra dizer "não sei", e o veredito lá em cima já disse isso melhor.
+    ///
+    /// Basta UM dia com registro pra seção existir: aí a hachura tem contra o que ser lida.
+    private var history: History { snapshot.history }
+    private var showsHistory: Bool { !history.days.isEmpty && history.hasAnyRecord }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             verdictBlock
             Rectangle().fill(p.lineSoft).frame(height: 1)
             bench
+            if showsHistory {
+                Rectangle().fill(p.lineSoft).frame(height: 1)
+                past
+            }
             Spacer(minLength: 0)
             footer
         }
@@ -76,7 +105,13 @@ public struct MainWindowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(S.s6)
+        // O ar VERTICAL encolheu (32 → 24) quando a história entrou. A janela do Jair tem
+        // 1080 px de altura e a bancada inteira precisa caber SEM rolagem: uma tela que
+        // rola é uma tela onde a resposta pode estar embaixo da dobra, e este app existe
+        // pra responder de relance. O ar horizontal ficou intacto — quem cedeu foi a
+        // margem, não a hierarquia.
+        .padding(.horizontal, S.s6)
+        .padding(.vertical, S.s5)
     }
 
     /// TEMPO > TOKEN. Folga em pontos, hora do reset, ritmo relativo à janela.
@@ -132,7 +167,7 @@ public struct MainWindowView: View {
             }
         }
         .padding(.horizontal, S.s6)
-        .padding(.vertical, S.s5)
+        .padding(.vertical, S.s4)
     }
 
     /// A régua do eixo. Ela diz, sem uma palavra, que o eixo é NORMALIZADO:
@@ -230,9 +265,78 @@ public struct MainWindowView: View {
             }
             .frame(width: Self.valueColumn, alignment: .trailing)
         }
-        .padding(.vertical, S.s5)
+        // 24 → 16 → 12. A bancada cedeu ar vertical pra história caber na tela do Jair
+        // (1080 px, e a janela não rola). O ar horizontal e a hierarquia ficaram intactos:
+        // quem encolheu foi a margem entre as pistas, não o que cada pista diz.
+        .padding(.vertical, S.s3)
         .overlay(alignment: .top) {
             Rectangle().fill(p.lineSoft).frame(height: 1)
+        }
+    }
+
+    // MARK: - O passado
+    //
+    // A bancada acima responde "posso continuar?". Esta metade responde a outra pergunta,
+    // que é a única que o app pode responder e mais ninguém: "para ONDE foi o meu mês?".
+    //
+    // Ela é o mesmo instrumento — trilho, tinta, graduação, hachura — medindo outra coisa.
+    // Repare no que ela NÃO ganhou: nenhuma textura nova, nenhuma cor nova, nenhum card.
+    // O que muda de uma leitura pra outra é o DENOMINADOR, nunca o vocabulário.
+
+    private var past: some View {
+        VStack(alignment: .leading, spacing: S.s4) {
+            DayRack(history: history)
+
+            provenance
+
+            // Onde foi | em que modelo. Lado a lado porque são a MESMA pergunta cortada de
+            // dois jeitos: uma diz o lugar, a outra diz o preço do lugar. Empilhadas,
+            // pareceriam duas seções, e o olho leria uma e abandonaria a outra.
+            HStack(alignment: .top, spacing: S.s7) {
+                SpendList(
+                    title: "ONDE FOI",
+                    cuts: history.projects,
+                    restNoun: "projetos",
+                    // Evento sem `cwd` no disco existe (Codex antigo, sessão fora de repo).
+                    // Ele não vira um projeto chamado "desconhecido" — vira uma linha que
+                    // FECHA a conta. A alternativa era a coluna somar menos que o trilho e
+                    // ninguém explicar por quê.
+                    tail: history.unattributedUSD > 0
+                        ? .init(label: "sem projeto no disco", costUSD: history.unattributedUSD)
+                        : nil
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                SpendList(
+                    title: "EM QUE MODELO",
+                    cuts: history.models,
+                    restNoun: "modelos"
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, S.s6)
+        .padding(.vertical, S.s4)
+    }
+
+    /// A RESSALVA DO DESENHO. Só aparece quando há hachura na tela pra ela explicar —
+    /// legenda de textura que ninguém está vendo é ruído, e o rodapé já ensina isso.
+    ///
+    /// É a frase mais desconfortável do app, e a única que ninguém mais pode dizer: o disco
+    /// do Claude é MUTÁVEL. Sessão antiga é reescrita e compactada, e um dia de junho pode
+    /// ter tido gasto e não ter mais prova disso. Um app que desenhasse aquele dia como uma
+    /// coluna zerada estaria afirmando "você não trabalhou" — e essa é exatamente a
+    /// afirmação que ele não pode fazer. Então ele hachura o dia e escreve o porquê.
+    @ViewBuilder
+    private var provenance: some View {
+        if history.daysWithoutRecord > 0 {
+            Text(
+                "Dia hachurado é dia SEM REGISTRO — não é dia sem gasto. "
+                + "O Claude reescreve sessões antigas, e o que sai do disco sai daqui."
+            )
+            .font(.ui(T.xs))
+            .foregroundStyle(p.ink4)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -241,8 +345,35 @@ public struct MainWindowView: View {
 
     private var footer: some View {
         HStack {
-            ProvenanceLegend(present: snapshot.legendKinds)
-            Spacer()
+            // A legenda explica o que ESTÁ na tela. Com a história aberta, existe reticulado
+            // à vista mesmo que toda pista esteja medida — todo custo é derivado. Se a
+            // legenda não citasse o "inferido" aqui, ela estaria ensinando a ler uma tela
+            // que não é esta.
+            ProvenanceLegend(
+                present: showsHistory
+                    ? snapshot.legendKinds.union([.inferred])
+                    : snapshot.legendKinds
+            )
+
+            Spacer(minLength: S.s4)
+
+            // A PROCEDÊNCIA DO DINHEIRO. Mora aqui, e não junto do trilho, porque ela vale
+            // pros DOIS números em US$ da tela: os 30 dias E o "hoje" que está do lado. É o
+            // rodapé de um instrumento de medição — contrato de honestidade se imprime na
+            // peça, não num tooltip que ninguém abre.
+            //
+            // O que ela NÃO ganha é o til `~`. O til promete uma FAIXA (`41–68`), e aqui não
+            // existe faixa a prometer: o token é exato e o preço é o de tabela. A incerteza
+            // não é de magnitude, é de NATUREZA — isto é preço de API, não a conta que a
+            // Anthropic vai te cobrar. Isso não cabe num sinal de pontuação; cabe numa frase.
+            Text("Custo estimado a preço de API (pricing.json). Não é a sua fatura.")
+                .font(.ui(T.xs))
+                .foregroundStyle(p.ink3)
+                .lineLimit(1)
+                .layoutPriority(-1)   // quem cede largura primeiro é a nota, nunca o número
+
+            Spacer(minLength: S.s4)
+
             HStack(spacing: S.s2) {
                 Text("HOJE")
                     .font(.ui(T.micro, .medium))

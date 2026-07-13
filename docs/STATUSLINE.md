@@ -12,10 +12,90 @@
 > | `~/.mytokens/backups/settings-*.json` | backup automático de antes de cada mudança. |
 > | `~/.claude/hooks/gsd-statusline.js` | **NÃO TOCADO.** |
 >
-> **Instalar:** `./scripts/statusline-install.sh` · **Desfazer:** `./scripts/statusline-uninstall.sh`
+> **Instalar:** o botão **"conectar"** na pista do Claude (ou `./scripts/statusline-install.sh`)
+> **Desfazer:** o botão **"Desinstalar o hook"**, no mesmo painel (ou `./scripts/statusline-uninstall.sh`)
 >
 > **O round-trip foi TESTADO**, não prometido: desinstalar devolve o `settings.json`
 > **byte a byte** ao original. Isso foi verificado com `diff` antes de o hook ficar de pé.
+
+---
+
+## O "conectar" CONECTA (2026-07-13, segunda rodada)
+
+Por um tempo o botão "conectar" da pista do Claude abria um `NSAlert` que explicava, com
+honestidade, por que o número não existia — e mandava o usuário abrir um terminal e rodar um
+script, num repo que ele talvez nem tivesse clonado. Era honesto e era um beco.
+
+O motivo do beco era sério: instalar o hook **escreve em `~/.claude/settings.json`**, e a
+regra do projeto é que as fontes são read-only. Mas o que faltava nunca foi permissão
+técnica — era **consentimento**. E consentimento se pede **mostrando o que vai ser feito**.
+
+Então o painel do Claude agora mostra o **DIFF LITERAL** do `settings.json` — o antes e o
+depois, as linhas exatas — mais o conteúdo inteiro do wrapper que vai nascer. Nada é escrito
+antes do clique: nem um `mkdir`. `StatusLineHook.plan()` calcula os bytes e não toca em disco;
+só `install(_:)` escreve, e ele só é chamado por um botão.
+
+**Os estados que o app sabe dizer** (`StatusLineHook.state()`):
+
+| estado | o que aconteceu | o que o painel oferece |
+|---|---|---|
+| **ausente** | o `statusLine` não é nosso | o diff + "Instalar o hook" |
+| **instalado** | tudo são | por que o número ainda não veio + "Desinstalar o hook" |
+| **quebrado** | o `settings.json` aponta pro wrapper e o wrapper **não existe** (ou não é executável, ou o statusLine anterior do usuário sumiu) | "Consertar (reinstalar)" + "Desinstalar" |
+| **indeciso** | o `settings.json` não existe ou não é JSON legível | nada. Não encosto no que não entendo. |
+
+**Um hook quebrado é PIOR que hook nenhum**: a statusline do cara simplesmente para de
+aparecer e ele não faz ideia do porquê. Por isso `quebrado` é um estado de primeira classe, e
+não um `else` de `instalado`.
+
+### Onde o wrapper mora, e por que ele NÃO vem do bundle
+
+O wrapper é **gerado em Swift** (`StatusLineHook.wrapperSource(calling:)`) e escrito em
+`~/.mytokens/statusline.sh`. Ele **não é um recurso do bundle**, e a escolha tem três razões:
+
+1. **Ele não é um asset — é código gerado.** O wrapper EMBUTE o comando anterior do usuário,
+   escapado pro `sh`. Um "template" no bundle seria um literal com um buraco, e o buraco é a
+   única parte interessante.
+2. **Um recurso pode sumir; um literal não.** Cópia, codesign, grupo sincronizado
+   classificando `.sh` como sabe-se lá o quê — e o sintoma da perda seria justamente "o
+   conectar não conecta". Menos peças, menos modos de falha.
+3. **O bundle seria só transporte.** Depois de instalado, nada do app é lido de novo: o
+   caminho vem de `NSHomeDirectory()`, nunca do `Bundle`. É isso que garante que o wrapper
+   **nunca aponte pro DerivedData nem pro repo** — um caminho que aponta pra pasta de build de
+   alguém é uma statusline que morre no primeiro `xcodebuild clean`.
+
+O `scripts/statusline-install.sh` continua funcionando pra quem prefere o terminal, e gera o
+**mesmo arquivo, byte a byte** (provado com `diff` + `shasum`: `6f052bb3…` dos dois lados).
+Instalar pelo app e desinstalar pelo script — ou o contrário — funciona: são o mesmo formato,
+não dois mundos.
+
+### O que o app garante ao escrever
+
+- **Backup antes de tocar** (e também antes de DESFAZER — desfazer também é mexer).
+- **Escrita atômica**: temp + rename. Nunca truncar por cima. Se a máquina cair no meio, o
+  usuário fica com o arquivo velho INTEIRO, não com meio arquivo.
+- **Troca cirúrgica no texto cru**: o JSON **não é reserializado**. Indentação, ordem das
+  chaves e todo campo que a gente não conhece ficam byte a byte iguais. Jogar fora o que eu
+  não entendo seria jogar fora justamente o que não é meu.
+- **O wrapper é testado ANTES** de o `settings.json` mudar — com um payload FALSO, despejado
+  num arquivo descartável. Se o teste falhar, nada é alterado. (Um payload inventado caindo no
+  arquivo real faria o app dizer "medido" sobre um número que ele mesmo criou. Seria a mentira
+  exata que este app existe pra não contar.)
+- **Falha fechado**: comando que aparece 2x no texto, JSON ilegível, bloco `statusLine` sem
+  `command` → o app **recusa** e diz por quê. Não adivinha.
+
+### O caso "ele não tinha statusLine"
+
+Aí não há string pra trocar: o bloco `statusLine` inteiro é **inserido**. Os bytes exatos que
+entraram ficam guardados em `~/.mytokens/inserted-block.txt` — é o que permite tirar
+**exatamente** eles depois, sem sobrar uma vírgula órfã nem uma linha em branco. Desfazer "mais
+ou menos" não é desfazer.
+
+### Codex e Cursor continuam só explicando
+
+E continuam certos em só explicar. O motivo deles é outro (o Codex grava os limites sozinho no
+rollout; o Cursor só tem o número no servidor) e **não tem conserto por hook nenhum**. Um botão
+que fingisse que tem seria pior que o beco.
 >
 > **Funcionou:** no primeiro redesenho da statusline o payload real caiu no despejo —
 > `five_hour: 12%` (zera 17:50), `seven_day: 9%` (zera seg. 06:00) — e o Claude saiu de

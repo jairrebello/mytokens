@@ -209,17 +209,24 @@ public struct Dashboard: Sendable, Equatable {
     public var todayCostUSD: Decimal
     /// Marca a última janela que resetou — o app dá o respiro visual e limpa.
     public var justReset: String?
+    /// O PASSADO — 30 dias, projeto, modelo. Já estava no `Snapshot` desde a Fase 1 e a
+    /// fronteira jogava fora. Nasce `.empty` (e aí a bancada não desenha história nenhuma):
+    /// trinta colunas vazias antes do primeiro scan seriam um instrumento afirmando o que
+    /// ainda não mediu. Ver Model/History.swift.
+    public var history: History
 
     public init(
         lanes: [Lane],
         discovered: [Provider] = [],
         todayCostUSD: Decimal = 0,
-        justReset: String? = nil
+        justReset: String? = nil,
+        history: History = .empty
     ) {
         self.lanes = lanes
         self.discovered = discovered
         self.todayCostUSD = todayCostUSD
         self.justReset = justReset
+        self.history = history
     }
 
     /// A pista que APERTA: a de menor folga entre as que têm tinta.

@@ -21,6 +21,29 @@ public struct AppControls {
     public var theme: Theme
     /// O que a barra mostra ao lado da proveta.
     public var menuBarStyle: MenuBarStyle
+    /// O hook do statusLine — a única fonte do "quanto RESTA" do Claude, e a única coisa que
+    /// o app escreve na casa do usuário.
+    ///
+    /// Ele precisa estar NO MENU, e não só no botão "conectar" da pista, por um motivo que só
+    /// aparece quando tudo dá certo: o botão "conectar" só existe em pista SEM TINTA. Com o
+    /// hook são e o número chegando, a pista tem tinta — e aí não sobra porta nenhuma pra
+    /// desinstalar o que a gente instalou. Instalador sem desinstalador alcançável é uma
+    /// armadilha, mesmo quando a armadilha é reversível por um `rm`.
+    public enum HookState: Sendable, Equatable {
+        case ausente
+        case instalado
+        /// Aponta pra nós e está MORTO. A statusline do usuário não está sendo desenhada agora.
+        case quebrado
+        /// Não dá pra opinar (settings.json ausente ou ilegível).
+        case indeciso
+    }
+
+    public var hook: HookState
+    /// Abre o painel do hook: o diff exato, e o verbo que couber ao estado (instalar,
+    /// reinstalar, desinstalar). É o MESMO painel do botão "conectar" — uma porta a mais
+    /// pro mesmo cômodo, não um segundo cômodo.
+    public var openHookPanel: () -> Void
+
     /// Avisar quando uma janela cruza 85% (UI-SPEC §7). Nasce ligado.
     public var notifyAt85: Bool
     /// O macOS BARROU os avisos. Quando isto é `true`, o menu para de oferecer o toggle e
@@ -41,6 +64,8 @@ public struct AppControls {
         launchesAtLogin: Bool? = nil,
         theme: Theme = .bancada,
         menuBarStyle: MenuBarStyle = .iconOnly,
+        hook: HookState = .indeciso,
+        openHookPanel: @escaping () -> Void = {},
         notifyAt85: Bool = true,
         notificationsBlocked: Bool = false,
         togglePause: @escaping () -> Void = {},
@@ -55,6 +80,8 @@ public struct AppControls {
         self.launchesAtLogin = launchesAtLogin
         self.theme = theme
         self.menuBarStyle = menuBarStyle
+        self.hook = hook
+        self.openHookPanel = openHookPanel
         self.notifyAt85 = notifyAt85
         self.notificationsBlocked = notificationsBlocked
         self.togglePause = togglePause

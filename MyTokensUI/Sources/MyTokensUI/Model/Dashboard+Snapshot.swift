@@ -16,7 +16,13 @@ extension Dashboard {
     /// Calor é ATIVIDADE, não perigo — não existe semáforo neste app.
     static let liveWindow: TimeInterval = 5 * 60
 
-    public init(_ snapshot: MyTokensCore.Snapshot, now: Date = Date()) {
+    /// `history` já pronta = o chamador a calculou FORA da MainActor. É o que o `AppModel`
+    /// faz, e é o motivo de o parâmetro existir: a passada dos 30 dias custa ~45 ms sobre o
+    /// disco real (68 mil eventos) e a MainActor não tem 45 ms pra dar a cada FSEvent.
+    ///
+    /// Quem passa `nil` (galeria, teste, preview) paga na hora — e tudo bem: lá o custo é
+    /// uma vez, não trinta vezes por dia.
+    public init(_ snapshot: MyTokensCore.Snapshot, now: Date = Date(), history: History? = nil) {
         var lanes: [Lane] = []
 
         for status in snapshot.statuses {
@@ -41,7 +47,8 @@ extension Dashboard {
         self.init(
             lanes: lanes,
             discovered: snapshot.statuses.filter(\.connected).map(\.provider),
-            todayCostUSD: snapshot.statuses.reduce(into: Decimal(0)) { $0 += $1.today.costUSD }
+            todayCostUSD: snapshot.statuses.reduce(into: Decimal(0)) { $0 += $1.today.costUSD },
+            history: history ?? History(snapshot, now: now)
         )
     }
 
