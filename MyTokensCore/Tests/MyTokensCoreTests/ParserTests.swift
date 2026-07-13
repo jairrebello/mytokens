@@ -343,6 +343,145 @@ struct DedupTests {
     }
 }
 
+// MARK: - Agregação incremental
+
+@Suite("Agregação incremental — refazer só o que mudou dá o MESMO número")
+struct IncrementalAggregationTests {
+
+    /// A pergunta que decide se o cache por arquivo pode existir: ele MENTE?
+    /// Um collector que viu o disco crescer aos poucos tem que chegar no mesmo número
+    /// de um collector que viu o disco pronto de uma vez. Se não chegar, o cache é um bug
+    /// com cara de otimização.
+    @Test("o incremental chega no MESMO número que o scan do zero")
+    func incrementalEqualsFullRebuild() async throws {
+        let dir = try TempDir()
+        let pricing = try PricingTable.bundled()
+
+        func write(_ name: String, _ linhas: [String]) throws {
+            try (linhas.joined(separator: "\n") + "\n").write(
+                to: dir.url.appending(path: name), atomically: true, encoding: .utf8)
+        }
+
+        try write("a.jsonl", [claudeAssistant(req: "r1", msg: "m1", output: 100)])
+        try write("b.jsonl", [claudeAssistant(req: "r2", msg: "m2", output: 200)])
+
+        // Este viu o disco crescer: lê, depois o disco muda, lê de novo.
+        let vivo = ClaudeCodeCollector(root: dir.url, pricing: pricing)
+        _ = try await vivo.collectDetailed()
+
+        // a.jsonl CRESCE (streaming: a mesma request, agora completa) e nasce um c.jsonl.
+        try write("a.jsonl", [
+            claudeAssistant(req: "r1", msg: "m1", output: 100),
+            claudeAssistant(req: "r1", msg: "m1", output: 555),   // a mensagem pronta
+        ])
+        try write("c.jsonl", [claudeAssistant(req: "r3", msg: "m3", output: 300)])
+
+        let incremental = try await vivo.collectDetailed()
+
+        // Este chega agora e vê o disco pronto. É a verdade contra a qual o outro é medido.
+        let doZero = try await ClaudeCodeCollector(root: dir.url, pricing: pricing).collectDetailed()
+
+        #expect(incremental.events.count == doZero.events.count)
+        #expect(
+            incremental.events.map(\.id).sorted() == doZero.events.map(\.id).sorted()
+        )
+        #expect(
+            incremental.events.reduce(0) { $0 + $1.tokens.output }
+                == doZero.events.reduce(0) { $0 + $1.tokens.output }
+        )
+        // e o valor certo: r1 conta 555 (não 100, nem 100+555), r2 200, r3 300.
+        #expect(incremental.events.reduce(0) { $0 + $1.tokens.output } == 555 + 200 + 300)
+    }
+
+    /// Arquivo REESCRITO encolhendo: o que sumiu tem que sumir da conta também.
+    /// Um cache que só sabe somar vira um vazamento de tokens.
+    @Test("arquivo reescrito menor: os eventos que sumiram saem da conta")
+    func rewriteDropsOldEvents() async throws {
+        let dir = try TempDir()
+        let pricing = try PricingTable.bundled()
+        let f = dir.url.appending(path: "a.jsonl")
+
+        try (claudeAssistant(req: "r1", msg: "m1", output: 100) + "\n"
+           + claudeAssistant(req: "r2", msg: "m2", output: 200) + "\n")
+            .write(to: f, atomically: true, encoding: .utf8)
+
+        let c = ClaudeCodeCollector(root: dir.url, pricing: pricing)
+        #expect(try await c.collectDetailed().events.count == 2)
+
+        // reescrito: r2 sumiu.
+        try (claudeAssistant(req: "r1", msg: "m1", output: 100) + "\n")
+            .write(to: f, atomically: true, encoding: .utf8)
+
+        let r = try await c.collectDetailed()
+        #expect(r.events.count == 1)
+        #expect(r.events.reduce(0) { $0 + $1.tokens.output } == 100)
+    }
+
+    /// Arquivo APAGADO: idem.
+    @Test("arquivo apagado: os eventos dele saem da conta")
+    func deleteDropsEvents() async throws {
+        let dir = try TempDir()
+        let pricing = try PricingTable.bundled()
+
+        for (n, r) in [("a.jsonl", "r1"), ("b.jsonl", "r2")] {
+            try (claudeAssistant(req: r, msg: "m", output: 100) + "\n")
+                .write(to: dir.url.appending(path: n), atomically: true, encoding: .utf8)
+        }
+
+        let c = ClaudeCodeCollector(root: dir.url, pricing: pricing)
+        #expect(try await c.collectDetailed().events.count == 2)
+
+        try FileManager.default.removeItem(at: dir.url.appending(path: "b.jsonl"))
+        #expect(try await c.collectDetailed().events.count == 1)
+    }
+
+    /// A PROMESSA DE PERFORMANCE, num disco de verdade em miniatura.
+    ///
+    /// Antes: UM arquivo crescer reconstruía os 45 mil eventos — dedup + Decimal de custo
+    /// + ordenação (395 ms medidos no disco do Jair). E enquanto o usuário trabalha, SEMPRE
+    /// tem arquivo crescendo: o caso comum era o caro.
+    /// Agora: refaz só o arquivo que mexeu e junta o resto por merge linear.
+    @Test("um arquivo que cresce NÃO reconstrói o mundo")
+    func appendDoesNotRebuildTheWorld() async throws {
+        let dir = try TempDir()
+        let pricing = try PricingTable.bundled()
+
+        // 800 arquivos × 20 linhas = 16 mil linhas. Não é o disco do Jair (93 mil), mas é
+        // grande o bastante pra diferença entre "refazer tudo" e "refazer um" aparecer.
+        for i in 0..<800 {
+            let linhas = (0..<20).map {
+                claudeAssistant(req: "r\(i)-\($0)", msg: "m\(i)-\($0)", output: 50)
+            }
+            try (linhas.joined(separator: "\n") + "\n").write(
+                to: dir.url.appending(path: "f\(i).jsonl"), atomically: true, encoding: .utf8)
+        }
+
+        let c = ClaudeCodeCollector(root: dir.url, pricing: pricing)
+
+        let t0 = DispatchTime.now()
+        _ = try await c.collectDetailed()
+        let completo = Double(DispatchTime.now().uptimeNanoseconds - t0.uptimeNanoseconds) / 1e9
+
+        // UM arquivo cresce.
+        let h = try FileHandle(forWritingTo: dir.url.appending(path: "f7.jsonl"))
+        try h.seekToEnd()
+        try h.write(contentsOf: Data((claudeAssistant(req: "novo", msg: "novo", output: 9) + "\n").utf8))
+        try h.close()
+
+        let t1 = DispatchTime.now()
+        let r = try await c.collectDetailed()
+        let incremental = Double(DispatchTime.now().uptimeNanoseconds - t1.uptimeNanoseconds) / 1e9
+
+        #expect(r.diagnostics.scan.filesAppended == 1)
+        #expect(r.events.count == 800 * 20 + 1)   // e o evento novo entrou
+        #expect(
+            incremental < completo / 3,
+            Comment(rawValue: "completo=\(Int(completo * 1000))ms "
+                + "incremental=\(Int(incremental * 1000))ms — o append reconstruiu o mundo?")
+        )
+    }
+}
+
 // MARK: - Helpers
 
 /// Uma linha `assistant` do disco do Claude, com o mínimo que o parser exige.

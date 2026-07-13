@@ -200,12 +200,38 @@ public actor ClaudeCodeCollector: UsageCollector {
     private let scanner: IncrementalScanner<ClaudeFileParser>
     private let calendar: Calendar
 
-    /// O último resultado caro. Válido enquanto o disco não mexer.
-    private struct Memo: Sendable {
-        let events: [UsageEvent]
-        let diagnostics: ClaudeDiagnostics
+    // MARK: - O cache POR ARQUIVO
+    //
+    // O memo anterior era tudo-ou-nada: disco parado, custo zero; UM arquivo cresceu,
+    // reconstruía os 45 mil eventos (preço=176ms + sort=173ms). E enquanto o usuário
+    // trabalha, SEMPRE tem arquivo crescendo — ou seja, o caso comum era o caro.
+    //
+    // Agora cada arquivo guarda os SEUS eventos, já deduplicados, precificados e
+    // ordenados. Um arquivo mexeu? Refaz só ele, e junta com o resto por MERGE LINEAR
+    // de dois arrays já ordenados, em vez de reordenar o mundo.
+
+    /// Os eventos de UM arquivo, prontos. Ordenados por ts.
+    private struct FileEvents: Sendable {
+        var events: [UsageEvent]
+        var assistantRows: Int
+        var rawBuckets: TokenBuckets
+        var dedupBuckets: TokenBuckets
+        var unpriced: Set<String>
     }
-    private var memo: Memo?
+
+    private var perFile: [String: FileEvents] = [:]
+    private var merged: [UsageEvent] = []
+
+    /// Chave de dedup -> arquivo dono dela.
+    ///
+    /// O dedup por arquivo só EQUIVALE ao dedup global porque nenhuma chave aparece em
+    /// dois arquivos (`requestIdsAppearingInMultipleFiles == 0`, docs/FONTES.md §2.1).
+    /// Isso é uma suposição sobre software de TERCEIRO, então não é assumida: é VERIFICADA
+    /// a cada arquivo digerido. Se um dia o Claude Code espalhar a mesma chave por dois
+    /// arquivos (resume/branch de verdade), `crossFile` liga e o collector cai no caminho
+    /// LENTO e globalmente correto. Degradar pra lento-e-certo, nunca pra rápido-e-errado.
+    private var keyOwner: [String: String] = [:]
+    private var crossFile = false
 
     public init(
         root: URL = URL(fileURLWithPath: NSHomeDirectory()).appending(path: ".claude/projects"),
@@ -229,19 +255,17 @@ public actor ClaudeCodeCollector: UsageCollector {
         let files = FileWalker.jsonl(under: root)
         let result = await scanner.scan(files: files)
 
-        // Disco IDÊNTICO ao scan anterior? Então os eventos também são. Reconstruí-los
-        // (dedup de 93 mil linhas + Decimal de custo em 45 mil + ordenação) daria
-        // exatamente o mesmo array, por 314 ms. O que MUDA com o tempo é o status —
-        // janela de 5h anda, o dia vira — e só ele é recalculado.
-        let (events, diag): ([UsageEvent], ClaudeDiagnostics)
-        if !result.changed, let cache = memo {
-            (events, diag) = (cache.events, cache.diagnostics)
-        } else {
-            (events, diag) = Self.build(digests: result.digests, pricing: pricing, files: files.count)
-            memo = Memo(events: events, diagnostics: diag)
+        // O que mudou no disco vira trabalho; o que não mudou, não custa nada.
+        for path in result.removedPaths { forget(path) }
+        for path in result.changedPaths {
+            forget(path)
+            if let rows = result.digests[path] { absorb(path: path, rows: rows) }
         }
 
-        var diagnostics = diag
+        if result.changed { rebuildMerged(changed: result.changedPaths) }
+
+        let events = merged
+        var diagnostics = diagnose(files: files.count)
         diagnostics.scan = result.stats
 
         let windows = rateLimits.read(now: now)
@@ -256,59 +280,52 @@ public actor ClaudeCodeCollector: UsageCollector {
         return ClaudeCollectResult(events: events, status: status, diagnostics: diagnostics)
     }
 
-    /// O trabalho caro: dedup global, precificação e ordenação. Só roda quando o disco mexeu.
-    private static func build(
-        digests: [String: [ClaudeRow]],
-        pricing: PricingTable,
-        files: Int
-    ) -> ([UsageEvent], ClaudeDiagnostics) {
-        var diag = ClaudeDiagnostics()
-        diag.files = files
+    /// Esquece tudo que veio de um arquivo. Chamado antes de reabsorvê-lo, e quando ele some.
+    private func forget(_ path: String) {
+        guard let old = perFile.removeValue(forKey: path) else { return }
+        for e in old.events where keyOwner[e.id] == path { keyOwner.removeValue(forKey: e.id) }
+    }
 
-        // DEDUP GLOBAL por requestId. É aqui que 8,3 bilhões de tokens fantasma morrem.
-        //
-        // QUAL ocorrência fica? A de MAIOR TOTAL. Não é detalhe — é 9,8% do output.
-        //
-        // O Claude Code reescreve a MESMA mensagem (mesmo requestId, mesmo message.id, no
-        // mesmo arquivo) enquanto ela é gerada, e o `output_tokens` CRESCE a cada reescrita:
-        //     out=5 → out=5 → out=330
-        // Ficar com a PRIMEIRA congela a mensagem no começo dela. Medido no disco real:
-        // 7.360 chaves afetadas, 3.477.980 tokens de output perdidos — e output é o bucket
-        // CARO (Opus: US$ 75/M contra US$ 15/M do input). O custo saía subestimado.
-        //
-        // E por que não a ÚLTIMA, que seria o óbvio? Porque existe registro TRUNCADO: uma
-        // chave (em 46.518) tem a última ocorrência ZERADA em todos os buckets. "Última"
-        // jogaria 271 mil tokens fora naquele caso. "Maior total" acerta os dois.
-        //
-        // De quebra, é a única regra DETERMINÍSTICA: "primeira" depende da ordem do
-        // readdir, então o total de um dia ANTIGO mudava só porque um arquivo novo entrou
-        // e reordenou a varredura. Conferido no disco: zero empate ambíguo (mesmo total,
-        // buckets diferentes), então a escolha nunca é sorteio.
+    /// Digere UM arquivo: dedup dentro dele, preço, ordenação. É o único trabalho caro que
+    /// sobra — e ele custa o tamanho do arquivo, não o tamanho do disco.
+    ///
+    /// DEDUP: fica a ocorrência de MAIOR TOTAL. Não é detalhe — é 9,8% do output.
+    /// O Claude Code reescreve a MESMA mensagem (mesmo requestId, mesmo message.id, no
+    /// mesmo arquivo) enquanto ela é gerada, e o `output_tokens` CRESCE a cada reescrita:
+    ///     out=5 → out=5 → out=330
+    /// Ficar com a PRIMEIRA congela a mensagem no começo dela. Medido no disco real:
+    /// 7.360 chaves afetadas, 3.477.980 tokens de output perdidos — e output é o bucket
+    /// CARO (Opus: US$ 75/M contra US$ 15/M do input). O custo saía subestimado.
+    ///
+    /// E por que não a ÚLTIMA, que seria o óbvio? Porque existe registro TRUNCADO: uma
+    /// chave (em 46.518) tem a última ocorrência ZERADA em todos os buckets. "Última"
+    /// jogaria 271 mil tokens fora naquele caso. "Maior total" acerta os dois — e é a
+    /// única regra que não depende da ordem em que os arquivos foram lidos.
+    private func absorb(path: String, rows: [ClaudeRow]) {
         var best: [String: ClaudeRow] = [:]
-        best.reserveCapacity(64_000)
+        var f = FileEvents(
+            events: [], assistantRows: rows.count,
+            rawBuckets: TokenBuckets(), dedupBuckets: TokenBuckets(), unpriced: []
+        )
 
-        for (_, rows) in digests {
-            for row in rows {
-                diag.assistantRows += 1
-                diag.rawBuckets += row.tokens
-
-                if let atual = best[row.dedupKey], atual.tokens.total >= row.tokens.total {
-                    continue
-                }
-                best[row.dedupKey] = row
-            }
+        for row in rows {
+            f.rawBuckets += row.tokens
+            if let atual = best[row.dedupKey], atual.tokens.total >= row.tokens.total { continue }
+            best[row.dedupKey] = row
         }
 
-        var events: [UsageEvent] = []
-        events.reserveCapacity(best.count)
-
+        f.events.reserveCapacity(best.count)
         for row in best.values {
-            diag.dedupBuckets += row.tokens
+            // A chave é de OUTRO arquivo? Então o dedup por arquivo deixou de equivaler ao
+            // global, e o caminho rápido deixou de ser correto. Liga o lento.
+            if let dono = keyOwner[row.dedupKey], dono != path { crossFile = true }
+            keyOwner[row.dedupKey] = path
 
+            f.dedupBuckets += row.tokens
             let cost = pricing.cost(model: row.model, tokens: row.tokens)
-            if cost == nil, row.tokens.total > 0 { diag.unpricedModels.insert(row.model) }
+            if cost == nil, row.tokens.total > 0 { f.unpriced.insert(row.model) }
 
-            events.append(UsageEvent(
+            f.events.append(UsageEvent(
                 id: row.dedupKey,
                 provider: .claudeCode,
                 ts: row.ts,
@@ -320,11 +337,81 @@ public actor ClaudeCodeCollector: UsageCollector {
             ))
         }
 
-        diag.uniqueRequestIds = best.count
-        diag.rawTokens = diag.rawBuckets.total
-        diag.dedupTokens = diag.dedupBuckets.total
+        f.events.sort { $0.ts < $1.ts }
+        perFile[path] = f
+    }
 
-        events.sort { $0.ts < $1.ts }
-        return (events, diag)
+    /// Junta os arquivos num array ordenado só.
+    ///
+    /// O caso comum é UM arquivo ter crescido (o usuário está trabalhando agora). Então
+    /// não se reordena o mundo: tira desse array os eventos que vieram do arquivo que
+    /// mexeu, e faz um MERGE LINEAR do resto com os eventos novos, que já vêm ordenados.
+    /// Reordenar 45 mil eventos custava 173 ms; o merge custa uma passada.
+    private func rebuildMerged(changed: [String]) {
+        // Chave repetida entre arquivos: o dedup por arquivo não basta. Refaz global.
+        // Nunca aconteceu neste disco — mas se acontecer, é aqui que a correção mora.
+        guard !crossFile else { return rebuildMergedGlobally() }
+
+        let mexeram = Set(changed)
+        // Full rebuild quando é o primeiro scan ou quando mexeu quase tudo: aí o merge
+        // linear não paga o próprio custo.
+        guard !merged.isEmpty, mexeram.count * 4 < perFile.count else {
+            merged = perFile.values.flatMap(\.events).sorted { $0.ts < $1.ts }
+            return
+        }
+
+        let novos = mexeram
+            .compactMap { perFile[$0]?.events }
+            .flatMap(\.self)
+            .sorted { $0.ts < $1.ts }
+
+        // Fora os eventos VELHOS dos arquivos que mexeram. `forget` já limpou o keyOwner
+        // deles, então o que sobrou aqui é justamente o que precisa sair.
+        let ids = Set(novos.map(\.id))
+        let antigos = merged.filter { !ids.contains($0.id) && keyOwner[$0.id] != nil }
+
+        merged = Self.mergeSorted(antigos, novos)
+    }
+
+    /// O caminho LENTO e globalmente correto. Só roda se uma chave aparecer em dois
+    /// arquivos — o que o disco de hoje diz que não acontece, e o código não acredita.
+    private func rebuildMergedGlobally() {
+        var best: [String: UsageEvent] = [:]
+        for f in perFile.values {
+            for e in f.events {
+                if let atual = best[e.id], atual.tokens.total >= e.tokens.total { continue }
+                best[e.id] = e
+            }
+        }
+        merged = best.values.sorted { $0.ts < $1.ts }
+    }
+
+    /// Duas listas ordenadas viram uma, numa passada.
+    private static func mergeSorted(_ a: [UsageEvent], _ b: [UsageEvent]) -> [UsageEvent] {
+        var out: [UsageEvent] = []
+        out.reserveCapacity(a.count + b.count)
+        var i = 0, j = 0
+        while i < a.count && j < b.count {
+            if a[i].ts <= b[j].ts { out.append(a[i]); i += 1 } else { out.append(b[j]); j += 1 }
+        }
+        out.append(contentsOf: a[i...])
+        out.append(contentsOf: b[j...])
+        return out
+    }
+
+    /// Os diagnósticos são a soma do que cada arquivo contribuiu.
+    private func diagnose(files: Int) -> ClaudeDiagnostics {
+        var d = ClaudeDiagnostics()
+        d.files = files
+        for f in perFile.values {
+            d.assistantRows += f.assistantRows
+            d.rawBuckets += f.rawBuckets
+            d.dedupBuckets += f.dedupBuckets
+            d.unpricedModels.formUnion(f.unpriced)
+        }
+        d.uniqueRequestIds = merged.count
+        d.rawTokens = d.rawBuckets.total
+        d.dedupTokens = d.dedupBuckets.total
+        return d
     }
 }

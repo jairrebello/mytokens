@@ -39,7 +39,14 @@ public struct ScanResult<Digest: Sendable>: Sendable {
     /// o que já calculou. Sem isto, o refresh reconstrói 45 mil eventos (dedup, Decimal,
     /// ordenação) pra chegar no mesmo array de antes — 314 ms de trabalho pra nada, a
     /// cada evento de FSEvents.
-    public var changed: Bool
+    public var changed: Bool { !changedPaths.isEmpty || !removedPaths.isEmpty }
+
+    /// QUAIS arquivos foram parseados agora (nasceram, cresceram ou foram reescritos).
+    /// Saber quais, e não só que houve algum, é o que permite refazer só a parte que
+    /// mudou em vez do mundo inteiro.
+    public var changedPaths: [String]
+    /// Sumiram do disco.
+    public var removedPaths: [String]
 }
 
 /// Um arquivo com tamanho e mtime JÁ LIDOS.
@@ -181,20 +188,20 @@ public actor IncrementalScanner<P: IncrementalFileParser> {
 
         // 3) Poda arquivos que sumiram do disco.
         let alive = Set(files.map(\.path))
-        let antes = entries.count
-        entries = entries.filter { alive.contains($0.key) }
-        let sumiram = antes - entries.count
-
-        // Mudou = alguém parseou, ou algum arquivo sumiu. Se nada disso, o disco está
-        // idêntico ao scan anterior e o chamador pode reusar o que já calculou.
-        let changed = !parsedList.isEmpty || sumiram > 0
+        let removed = entries.keys.filter { !alive.contains($0) }
+        for p in removed { entries.removeValue(forKey: p) }
 
         var digests: [String: P.Digest] = [:]
         digests.reserveCapacity(entries.count)
         for (path, e) in entries { digests[path] = e.digest }
 
         stats.duration = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
-        return ScanResult(digests: digests, stats: stats, changed: changed)
+        return ScanResult(
+            digests: digests,
+            stats: stats,
+            changedPaths: parsedList.map(\.path),
+            removedPaths: removed
+        )
     }
 
     /// Lê [from, size) e corta no ÚLTIMO \n — nunca entrega linha pela metade.
