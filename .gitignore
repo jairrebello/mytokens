@@ -1,16 +1,16 @@
-# deps
-node_modules/
-.pnpm-store/
+# build output — Swift
+.build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+Package.resolved
 
-# build output
+# release / packaging
+build/
 dist/
 out/
-build/
-*.tsbuildinfo
-
-# electron/tauri packaging
-release/
-src-tauri/target/
+*.xcarchive
+*.dmg
 
 # os
 .DS_Store
@@ -20,18 +20,28 @@ src-tauri/target/
 !.vscode/extensions.json
 .idea/
 
-# env / secrets — NUNCA versionar token
+# env / secrets — NUNCA versionar credencial
+# ATENÇÃO: NÃO usar glob largo tipo **/*token* ou **/*secret* aqui.
+# O projeto se chama MyTokens, o git no macOS é case-insensitive, e esse glob engolia
+# MyTokensCore/, MyTokensUI/ e MyTokens.xcodeproj INTEIROS — o código sumia do git em
+# silêncio, sem erro nenhum. Foi bug real, custou o commit de três agentes.
+# Segredo do usuário vai pro Keychain (regra 4), não pra arquivo em disco. O de baixo
+# é só rede de proteção contra acidente:
 .env
 .env.*
 *.pem
 *.key
-**/*token*
-**/*secret*
+*.p12
+*.p8
+*.mobileprovision
+credentials.json
+
+# screenshots gerados pela bancada (./shots.sh). São artefato, não fonte — e o estado
+# `real` fotografa o gasto REAL da máquina de quem rodou. Não versionar.
+MyTokensUI/shots/
 
 # logs
 *.log
-npm-debug.log*
-pnpm-debug.log*
 
 # test/coverage
 coverage/

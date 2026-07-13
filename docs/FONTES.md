@@ -368,7 +368,15 @@ e `"five_hour": { // Optional: 5-hour session limit (may be absent)`.
 
 ### 5.3 ✅ Como LER sem chamar API nenhuma: o hook `statusLine`
 
-Este é o caminho. Trecho do binário (v2.1.207) que monta o payload do `statusLine`:
+> **FASE 2 — mecanismo completo (settings schema, frequência de invocação, payload byte a byte,
+> como conviver com um statusLine já existente): `docs/LIMITES.md` §4.**
+> Resumo do que mudou: `type` só aceita `"command"`; existe `refreshInterval` (segundos) e
+> polling vem **desligado** por padrão; `rate_limits` é **Optional** e **só aparece após a
+> primeira resposta de API**; o payload traz de brinde `transcript_path` e
+> `context_window.used_percentage`. **E o Jair JÁ TEM um statusLine instalado** — sobrescrever
+> destrói o dele.
+
+Trecho do binário (v2.1.207) que monta o payload do `statusLine`:
 
 ```js
 x = Mwt();   // rate limits vindos dos headers
@@ -526,3 +534,54 @@ explorado. **NÃO PROVADO por mim.**
 | 5 | Spread de 8–15s no `resets_at` do mesmo bloco | Não investigado |
 | 6 | `LIMITE_DO_PLANO` em token/mensagem | **Não existe publicado.** Conclusão negativa, confirmada pelo Sextante |
 | 7 | Cursor | Fora do meu escopo |
+
+---
+
+## 9. PORTAR PRO SWIFT — os probes TS são o ORÁCULO
+
+O projeto virou **Swift nativo (macOS)**. Os `scripts/probe/*.ts` **não são código morto**:
+são a **implementação de referência**. Regra: o Swift do Turbina tem que reproduzir estes
+números, **exatos**, ou tem bug.
+
+### 9.1 Comando de conferência
+
+```bash
+bun scripts/probe/scan-claude.ts --pretty | jq '{inflation, totals}'
+bun scripts/probe/scan-codex.ts  --pretty | jq '{totalTokensCorrect, naiveOverCorrectRatio}'
+```
+
+### 9.2 Checklist de paridade — se qualquer um falhar, o Swift está errado
+
+| # | Invariante | Onde erra |
+|---|---|---|
+| 1 | Varredura **recursiva** de `~/.claude/projects/` | Não-recursivo perde `subagents/` → **subconta** |
+| 2 | `raw / dedup ≈ 2,12` | Se der ~1,0, esqueceu o dedup → **infla 112%** |
+| 3 | `uniqueRequestIds ≈ assistantRows / 2,06` | — |
+| 4 | Dedup por `requestId`, fallback `message.id` | Sem fallback, as 28 linhas de erro colapsam |
+| 5 | `iterations.length > 1` → **soma** as iterações | Usar o topo **subconta** |
+| 6 | 4 buckets **separados** | Colapsar mente no custo (cache_read = 84% do volume) |
+| 7 | Codex: **último** evento de cada sessão | Somar todos → **infla 86,4x** |
+| 8 | Codex: `rate_limits` pode ser `null` | Crash no parser (eu quebrei o meu nisso) |
+| 9 | Agrupar por `timestamp` do **evento**, nunca por data do arquivo | Blocos de 5h saem errados |
+
+### 9.3 Números-âncora (snapshot 2026-07-13, 6.224 arquivos)
+
+O disco cresce enquanto se trabalha — **rode o probe e o Swift no MESMO instante** e compare.
+Não compare o Swift de hoje com um número colado de ontem.
+
+```
+Claude: RAW 15.735.410.122 · DEDUP 7.409.681.259 · inflação +112,4% · 45.277 requestIds
+Codex : CORRETO 2.038.076.945 · NAIVE 176.076.139.447 · razão 86,4x
+```
+
+### 9.4 Pegadinhas de Swift especificamente
+
+- **`Int`, não `Int32`.** `cache_read_input_tokens` total = **15 bilhões**. Estoura `Int32`
+  (máx 2,1 bi) **com folga**. Use `Int` (64-bit) ou `Int64`.
+- **`resets_at` é epoch em SEGUNDOS.** `Date(timeIntervalSince1970:)` espera segundos — certo.
+  Mas se em algum ponto vier de JS (ms), divida por 1000. Não misture.
+- **JSONL não é JSON.** Uma linha = um objeto. Não tente `JSONDecoder` no arquivo inteiro.
+- **Campos opcionais de verdade.** `requestId` some em 28 linhas; `iterations` some em 3.293;
+  `rate_limits` some antes da 1ª resposta de API. Modele como `Optional`, não force-unwrap.
+- **Timestamps são ISO-8601 UTC com `Z`.** `ISO8601DateFormatter` com
+  `.withFractionalSeconds` — os transcripts têm milissegundos (`2026-06-22T17:16:24.650Z`).

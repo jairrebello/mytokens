@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  App Sandbox DESLIGADO — e isso é uma decisão, não um esquecimento.
+
+	  O app lê ~/.claude, ~/.codex e ~/Library/Application Support/Cursor. Sandbox só
+	  alcançaria esses diretórios via file-picker do usuário + security-scoped bookmarks:
+	  o usuário teria que ESCOLHER cada pasta na mão, e a gente guardaria bookmark de tudo.
+	  Custo alto, sem ganho pro usuário.
+
+	  Consequência aceita: distribuição é Developer ID + notarize (fora da Mac App Store).
+	  A App Store EXIGE sandbox; notarize NÃO exige. Se um dia a App Store virar requisito,
+	  isto aqui vira o bloqueio principal — e vai custar caro. Está anotado.
+
+	  Nenhuma entitlement de rede: o app não fala com servidor nenhum (regra 2). Se um dia
+	  o fallback do /api/oauth/usage entrar, aí sim precisa de com.apple.security.network.client.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>

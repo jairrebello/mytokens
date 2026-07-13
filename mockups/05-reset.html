@@ -140,25 +140,25 @@
   <div class="titlebar">
     <span class="dot"></span><span class="dot"></span><span class="dot"></span>
     <span class="name">MyTokens</span>
-    <span class="chip">16:12</span>
+    <span class="chip">16:50</span>
   </div>
 
   <div class="verdict">
     <div class="stack">
       <div class="old">
         <h1>Aperta o passo.</h1>
-        <p>O Codex encosta no teto antes da janela virar.</p>
+        <p>A janela de 5 h do Claude encosta no teto antes de virar.</p>
       </div>
       <div class="new">
         <h1>Janela nova.</h1>
         <p>
-          O <b>Codex</b> zerou às <b>16:12</b>. Cinco horas inteiras pela frente.
+          A janela de 5 h do <b>Claude</b> zerou às <b>16:50</b>. Cinco horas inteiras pela frente.
         </p>
         <div class="clockline">
           <span class="label">Folga</span>
           <span class="big num">5 h 00</span>
           <span class="label" style="margin-left:var(--s-4)">Próximo reset</span>
-          <span class="big num">21:12</span>
+          <span class="big num">21:50</span>
         </div>
       </div>
     </div>
@@ -166,22 +166,21 @@
 
   <div class="bench">
     <div class="axis">
-      <span class="label">Janela de 5 h</span>
+      <span class="label">Janela</span>
       <div class="scale">
-        <span style="left:0%">0h</span><span style="left:20%">1h</span>
-        <span style="left:40%">2h</span><span style="left:60%">3h</span>
-        <span style="left:80%">4h</span><span style="left:100%">5h</span>
+        <span style="left:0%">0%</span><span style="left:50%">50% da janela</span>
+        <span style="left:100%">100%</span>
       </div>
       <span class="label" style="text-align:right">Consumo</span>
     </div>
 
     <!-- ===== CODEX: 85% → 0%. A tinta é DRENADA, não apagada. ===== -->
     <div class="row">
-      <div class="who"><span class="n">Codex</span><span class="m">gpt-5.4 · plus</span></div>
+      <div class="who"><span class="n">Claude Code</span><span class="m">5 h · opus-4-8 · max</span></div>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
           <div class="ink live draining" style="width:85%"></div>
           <div class="wash"></div>
           <div class="now jumped"></div>
@@ -191,7 +190,7 @@
         <span class="pct resetting" data-heat="3">
           <span class="digits"><em>85<br>78<br>71<br>64<br>58<br>51<br>45<br>39<br>33<br>28<br>23<br>18<br>14<br>10<br>7<br>4<br>2<br>0</em></span><span class="unit">%</span>
         </span>
-        <span class="sub">zera <b>21:12</b></span>
+        <span class="sub">zera <b>21:50</b></span>
       </div>
     </div>
 
@@ -199,34 +198,33 @@
          Se tudo animasse junto, o app estaria mentindo sobre a mecânica
          dos limites — e o usuário aprenderia errado. -->
     <div class="row">
-      <div class="who"><span class="n">Claude Code</span><span class="m">opus-4-8 · 3 sessões</span></div>
+      <div class="who"><span class="n">Codex</span><span class="m">7 d · gpt-5.4 · plus</span></div>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
-          <div class="band" style="left:38%; width:20%"></div>
-          <div class="ink derived" style="width:47%"></div>
-          <div class="now" style="left:64%"></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink" style="width:31%"></div>
+          <div class="now" style="left:47%"></div>
         </div>
       </div>
       <div class="read">
-        <span class="pct" data-heat="1"><span class="approx">~</span>47<span class="unit">%</span></span>
-        <span class="sub">38–58 · zera <b>17:40</b></span>
+        <span class="pct" data-heat="1">31<span class="unit">%</span></span>
+        <span class="sub">zera <b>seg 09:20</b></span>
       </div>
     </div>
 
     <div class="row">
-      <div class="who"><span class="n">Cursor</span><span class="m">sem dado local</span></div>
-      <div class="lane"><div class="track empty"><div class="now" style="left:64%"></div></div></div>
+      <div class="who"><span class="n">Cursor</span><span class="m">mês · sem dado local</span></div>
+      <div class="lane"><div class="track empty"><div class="now" style="left:41%"></div></div></div>
       <div class="read"><span class="dash">—</span></div>
     </div>
   </div>
 
   <div class="prov">
     <span class="item"><i class="sw m"></i>Medido</span>
-    <span class="item"><i class="sw d"></i>Derivado</span>
+    <span class="item"><i class="sw d"></i>Inferido</span>
     <span class="item"><i class="sw a"></i>Sem dado</span>
-    <span class="src">janela do Codex virou · 16:12:00</span>
+    <span class="src">janela de 5 h do Claude virou · 16:50:00</span>
   </div>
 </div>
 

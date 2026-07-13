@@ -110,53 +110,52 @@
   <div class="verdict">
     <h1>Aperta o passo.</h1>
     <p>
-      No ritmo dos últimos 20 min, o <b>Codex</b> encosta no teto às
-      <span class="hot">15:47</span> — <b>25 min antes</b> da janela virar.
+      No ritmo dos últimos 20 min, a <b>janela de 5 h do Claude</b> encosta no teto às
+      <span class="hot">15:47</span> — <b>63 min antes</b> de virar.
       Dá pra fechar o que está aberto; não dá pra abrir frente nova.
     </p>
     <div class="clockline">
-      <span class="label">Folga real</span>
-      <span class="big hot">−25 min</span>
+      <span class="label">Folga</span>
+      <span class="big hot">−24 pts</span>
       <span class="label" style="margin-left:var(--s-4)">Janela vira</span>
-      <span class="big num">16:12</span>
+      <span class="big num">16:50</span>
       <span class="label" style="margin-left:var(--s-4)">Ritmo</span>
-      <span class="big num">1,9× a janela</span>
+      <span class="big num">1,29× a janela</span>
     </div>
   </div>
 
   <div class="bench">
     <div class="axis">
-      <span class="label">Janela de 5 h</span>
+      <span class="label">Janela</span>
       <div class="scale">
-        <span style="left:0%">0h</span><span style="left:20%">1h</span>
-        <span style="left:40%">2h</span><span style="left:60%">3h</span>
-        <span style="left:80%">4h</span><span style="left:100%">5h</span>
+        <span style="left:0%">0%</span><span style="left:50%">50% da janela</span>
+        <span style="left:100%">100%</span>
       </div>
       <span class="label" style="text-align:right">Consumo</span>
     </div>
 
-    <!-- ================= CODEX: 85%, EM ROTA DE ESTOURO =================
-         A barra NÃO fica vermelha. Ela continua sendo o que sempre foi.
-         O que acontece é geométrico: a PROJEÇÃO passa do fim do trilho.
+    <!-- ============ CLAUDE 5 h: 85%, EM ROTA DE ESTOURO ============
+         A barra NÃO fica vermelha. Ela continua sendo o que sempre foi:
+         tinta medida, sólida, corte reto. O fato não muda de cor porque
+         o futuro é feio.
+         O que acontece é GEOMÉTRICO: a PROJEÇÃO passa do fim do trilho.
          O trilho é o limite. O que sai dele é o que você não tem. -->
     <div class="row">
       <div class="who">
-        <span class="n">Codex</span>
-        <span class="m">gpt-5.4 · plus</span>
+        <span class="n">Claude Code</span>
+        <span class="m">5 h · opus-4-8 · max</span>
       </div>
       <div class="lane risk">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
-          <!-- tinta medida: 85%, sólida, corte reto. o fato. -->
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
           <div class="ink live" style="width:85%"></div>
-          <!-- projeção: do agora até o fim da janela, no ritmo atual -->
           <div class="proj" style="left:85%; width:15%"></div>
-          <!-- e o que sobra VAZA pra fora do trilho. 24% de estouro. -->
+          <!-- o excedente VAZA pra fora do trilho. 24 pts de estouro. -->
           <div class="overrun" style="width:24%"></div>
           <div class="now" style="left:66%"></div>
         </div>
-        <span class="spill">+24%<br>estouro</span>
+        <span class="spill">+24<br>estouro</span>
       </div>
       <div class="read">
         <!-- heat=3: o número ENGORDOU. peso 700, tinta máxima. -->
@@ -165,32 +164,51 @@
       </div>
     </div>
 
-    <!-- CLAUDE — derivado, e tranquilo. Repare: mesmo linha a linha,
-         o reticulado continua lá. Estresse não vira licença pra mentir. -->
+    <!-- CLAUDE 7 d — medido, folgado. E é aqui que o design paga o aluguel:
+         a linha em pânico e a linha tranquila são o MESMO desenho, e ainda
+         assim ninguém confunde uma com a outra. -->
     <div class="row">
       <div class="who">
         <span class="n">Claude Code</span>
-        <span class="m">opus-4-8 · 3 sessões</span>
+        <span class="m">7 d · max</span>
       </div>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
-          <div class="band" style="left:38%; width:20%"></div>
-          <div class="ink derived" style="width:47%"></div>
-          <div class="now" style="left:54%"></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink" style="width:44%"></div>
+          <div class="now" style="left:47%"></div>
         </div>
       </div>
       <div class="read">
-        <span class="pct" data-heat="1"><span class="approx">~</span>47<span class="unit">%</span></span>
-        <span class="sub">38–58 · zera <b>17:40</b></span>
+        <span class="pct" data-heat="1">44<span class="unit">%</span></span>
+        <span class="sub">zera <b>sex 09:12</b></span>
       </div>
     </div>
 
     <div class="row">
-      <div class="who"><span class="n">Cursor</span><span class="m">sem dado local</span></div>
+      <div class="who">
+        <span class="n">Codex</span>
+        <span class="m">7 d · gpt-5.4 · plus</span>
+      </div>
       <div class="lane">
-        <div class="track empty"><div class="now" style="left:66%"></div></div>
+        <div class="track">
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink" style="width:31%"></div>
+          <div class="now" style="left:47%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct" data-heat="1">31<span class="unit">%</span></span>
+        <span class="sub">zera <b>seg 09:20</b></span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="who"><span class="n">Cursor</span><span class="m">mês · sem dado local</span></div>
+      <div class="lane">
+        <div class="track empty"><div class="now" style="left:41%"></div></div>
       </div>
       <div class="read">
         <span class="dash">—</span>

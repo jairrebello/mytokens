@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · o palpite vira medida</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { display:flex; flex-direction:column; align-items:center; justify-content:center;
+         min-height:100vh; padding:40px; gap:22px; background:oklch(0.10 0.004 60); }
+  @media (prefers-color-scheme: light){ body{ background:oklch(0.90 0.004 80);} }
+
+  .intro { max-width:820px; }
+  .intro h1 { font-size:var(--t-xl); color:var(--ink-0); font-weight:600;
+              letter-spacing:-.02em; }
+  .intro p { margin-top:10px; font-size:var(--t-sm); color:var(--ink-2);
+             line-height:1.65; }
+  .intro p b { color:var(--ink-0); font-weight:600; }
+
+  .win { width:820px; background:var(--canvas); border:1px solid var(--line);
+         border-radius:12px; overflow:hidden;
+         box-shadow:0 40px 90px -20px oklch(0 0 0 / .6); }
+
+  .titlebar { height:36px; display:flex; align-items:center; gap:var(--s-2);
+    padding:0 var(--s-4); border-bottom:1px solid var(--line-soft); background:var(--surface); }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--track); }
+  .titlebar .name { margin-left:auto; margin-right:auto; font-size:var(--t-xs);
+    color:var(--ink-3); letter-spacing:.14em; text-transform:uppercase; font-weight:600; }
+
+  /* ---- o convite. NÃO é um modal, NÃO é um badge vermelho, NÃO é um tour.
+     É uma linha no lugar onde a imprecisão dói — logo abaixo da barra imprecisa.
+     Some sozinha quando resolvida, e nunca mais volta. ---- */
+  .offer { display:flex; align-items:center; gap:12px;
+           margin:10px 0 0; padding:10px 12px;
+           border:1px solid var(--line); border-radius:var(--r-1);
+           background:oklch(0.76 0.13 48 / .05);
+           animation: offerOut 400ms var(--ease-out) 1500ms both; }
+  .offer .txt { font-size:var(--t-xs); color:var(--ink-2); line-height:1.5; flex:1; }
+  .offer .txt b { color:var(--ink-1); font-weight:500; }
+  .offer button { background:var(--ember); color:oklch(0.16 0 0);
+    border:0; border-radius:var(--r-1); padding:7px 13px;
+    font-family:var(--font-ui); font-size:var(--t-xs); font-weight:600;
+    cursor:pointer; white-space:nowrap; }
+  @keyframes offerOut { to { opacity:0; transform:translateY(-6px);
+                             max-height:0; padding-block:0; margin-top:0;
+                             border-color:transparent; } }
+
+  .bench { padding:var(--s-5) var(--s-6) var(--s-4); }
+  .row { display:grid; grid-template-columns:150px 1fr 152px; gap:var(--s-4);
+         align-items:center; padding:var(--s-4) 0; border-top:1px solid var(--line-soft); }
+  .row:first-child { border-top:0; }
+  .who { display:flex; flex-direction:column; gap:4px; }
+  .who .n { font-size:var(--t-md); color:var(--ink-0); font-weight:500; }
+  .who .w { font-size:var(--t-micro); color:var(--ink-3); font-family:var(--font-num); }
+  .lane { position:relative; padding:10px 0; }
+  .read { text-align:right; display:flex; flex-direction:column; gap:2px; }
+  .read .sub2 { font-size:var(--t-xs); color:var(--ink-3); font-family:var(--font-num); }
+  .read .sub2 b { color:var(--ink-2); font-weight:500; }
+
+  /* =================== A TRANSIÇÃO ===================
+     Antes: o Claude é 100% DERIVADO. Sem o hook statusLine, o app só tem
+     token no disco — e o denominador (o teto do plano) NÃO É PUBLICADO por
+     ninguém. Logo: reticulado de ponta a ponta, faixa larga (41–68%), til.
+     Uma barra que ADMITE que é um palpite.
+
+     Depois: o hook entrega rate_limits.five_hour.used_percentage. MEDIDO.
+     A barra ENDURECE: o reticulado condensa em tinta sólida, a faixa de
+     incerteza colapsa, o til some, o topo ganha corte reto.
+
+     Isso é a recompensa mais honesta que um app pode dar: você não ganhou
+     um confete, você ganhou PRECISÃO. E dá pra VER a precisão chegando.
+     ==================================================== */
+
+  /* 1. o reticulado vira sólido: a máscara de listras abre até sumir */
+  .harden {
+    animation: harden 700ms var(--ease-out) 1700ms both;
+  }
+  @keyframes harden {
+    from { background: repeating-linear-gradient(90deg,
+             var(--ember) 0 1px, transparent 1px 3px); }
+    to   { background: var(--ember); }
+  }
+  /* 2. o topo pontilhado vira corte reto */
+  .harden::after {
+    animation: capHarden 300ms var(--ease-out) 2200ms both;
+  }
+  @keyframes capHarden {
+    from { background: repeating-linear-gradient(180deg,
+             var(--ink-1) 0 2px, transparent 2px 4px); }
+    to   { background: var(--ember); }
+  }
+  /* 3. a faixa de incerteza COLAPSA no valor verdadeiro. o movimento mais
+     importante da tela: a dúvida encolhendo até virar um ponto. */
+  .collapse { animation: collapse 700ms var(--ease-out) 1700ms both; }
+  @keyframes collapse {
+    from { left:41%; width:27%; opacity:.5; }
+    to   { left:53%; width:0%;  opacity:0; }
+  }
+  /* 4. a largura corrige: o palpite era ~54%, a verdade é 53%. quase acertei.
+     mostrar isso é honesto: o palpite NÃO era lixo, era um palpite. */
+  .settle { animation: settle 700ms var(--ease-out) 1700ms both; }
+  @keyframes settle { from { width:54%; } to { width:53%; } }
+
+  /* 5. o til some. discreto, sem drama: era uma ressalva, deixou de ser precisa. */
+  .tilde { display:inline-block;
+           animation: tildeOut 260ms var(--ease-out) 2100ms both; }
+  @keyframes tildeOut { to { opacity:0; transform:translateX(4px); max-width:0; } }
+  .rangeout { animation: tildeOut 260ms var(--ease-out) 2100ms both; }
+  .measured-in { animation: fadeUp 380ms var(--ease-out) 2350ms both; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(5px); }
+                      to   { opacity:1; transform:translateY(0); } }
+
+  .prov { border-top:1px solid var(--line); background:var(--surface);
+          padding:var(--s-3) var(--s-6); display:flex; gap:var(--s-5); align-items:center; }
+  .prov .item { display:flex; align-items:center; gap:7px; font-size:var(--t-micro);
+    color:var(--ink-3); letter-spacing:.06em; text-transform:uppercase; }
+  .sw { width:26px; height:9px; border-radius:1px; }
+  .sw.m { background:var(--ink-1); }
+  .sw.d { background:repeating-linear-gradient(90deg,var(--ink-1) 0 1px,transparent 1px 3px); }
+  .prov .src { margin-left:auto; font-size:var(--t-micro); color:var(--ink-4);
+               font-family:var(--font-num); }
+
+  .replay { display:flex; align-items:center; gap:14px; }
+  .replay button { background:var(--surface); color:var(--ink-1);
+    border:1px solid var(--line); border-radius:var(--r-1); padding:8px 16px;
+    font-family:var(--font-ui); font-size:var(--t-sm); cursor:pointer; }
+  .replay button:hover { background:var(--surface-hi); color:var(--ink-0); }
+  .replay span { font-size:var(--t-xs); color:var(--ink-3); }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>O palpite vira medida</h1>
+  <p>
+    Sem o hook <code>statusLine</code>, o Claude é <b>100% derivado</b>: o app só tem token
+    no disco, e <b>nenhum dos três provedores publica o teto em token</b> — o denominador é
+    server-side. Então a barra <b>admite que é um palpite</b>: reticulada de ponta a ponta,
+    faixa larga, til.
+    <br><br>
+    Instalar o hook custa um clique e entrega <code>used_percentage</code> medido.
+    A barra <b>endurece</b>: o reticulado condensa, a faixa de incerteza <b>colapsa</b>, o til
+    some, o topo ganha corte reto. Você não ganhou um confete — <b>você ganhou precisão, e dá
+    pra ver a precisão chegando</b>. É o irmão do reset, e é o único onboarding que este app
+    precisa ter.
+  </p>
+</div>
+
+<div class="win" id="win">
+  <div class="titlebar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="name">MyTokens</span>
+    <span class="chip">14:47</span>
+  </div>
+
+  <div class="bench">
+
+    <!-- CLAUDE — o antes e o depois, na mesma barra -->
+    <div class="row">
+      <div class="who">
+        <span class="n">Claude Code</span>
+        <span class="w">5 h · opus-4-8 · max</span>
+      </div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <!-- faixa 41–68%: larga, porque o teto não é publicado -->
+          <div class="band collapse" style="left:41%; width:27%"></div>
+          <div class="ink derived live harden settle" style="width:54%"></div>
+          <div class="now" style="left:59%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct" data-heat="2">
+          <span class="approx tilde">~</span>53<span class="unit">%</span>
+        </span>
+        <span class="sub2 rangeout">estimado · 41–68</span>
+        <span class="sub2 measured-in" style="margin-top:-16px">
+          medido · zera <b>16:50</b>
+        </span>
+      </div>
+    </div>
+
+    <!-- o convite: onde a imprecisão dói, e em lugar nenhum mais -->
+    <div class="offer">
+      <div class="txt">
+        Esse número é <b>meu palpite</b> — nenhum provedor publica o teto em token.
+        O Claude Code sabe o valor exato e entrega de graça pelo hook
+        <b>statusLine</b>: sem API, sem credencial, sem sair da sua máquina.
+      </div>
+      <button>Instalar o hook</button>
+    </div>
+
+    <div class="row" style="margin-top:var(--s-4)">
+      <div class="who">
+        <span class="n">Codex</span>
+        <span class="w">7 d · gpt-5.4 · plus</span>
+      </div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink" style="width:31%"></div>
+          <div class="now" style="left:46%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct" data-heat="1">31<span class="unit">%</span></span>
+        <span class="sub2">medido · zera <b>seg 09:20</b></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="prov">
+    <span class="item"><i class="sw m"></i>Medido</span>
+    <span class="item"><i class="sw d"></i>Derivado</span>
+    <span class="src">hook statusLine instalado · 14:47:02</span>
+  </div>
+</div>
+
+<div class="replay">
+  <button onclick="const w=document.getElementById('win');const c=w.cloneNode(true);w.replaceWith(c);c.id='win';">
+    ↻ Rever
+  </button>
+  <span>
+    O palpite era ~54%; a verdade é 53%. A barra corrige <b>1 ponto</b> — e mostrar isso é o
+    ponto: o palpite não era lixo, era um palpite.
+  </span>
+</div>
+
+</body>
+</html>

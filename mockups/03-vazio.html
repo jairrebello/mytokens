@@ -101,11 +101,10 @@
 
   <div class="bench">
     <div class="axis">
-      <span class="label">Janela de 5 h</span>
+      <span class="label">Janela</span>
       <div class="scale">
-        <span style="left:0%">0h</span><span style="left:20%">1h</span>
-        <span style="left:40%">2h</span><span style="left:60%">3h</span>
-        <span style="left:80%">4h</span><span style="left:100%">5h</span>
+        <span style="left:0%">0%</span><span style="left:50%">50% da janela</span>
+        <span style="left:100%">100%</span>
       </div>
       <span class="label" style="text-align:right">Fonte</span>
     </div>
@@ -113,11 +112,11 @@
     <!-- vazio ≠ zero. A pista está aberta e o relógio no zero: a janela
          nem começou. Isso é DIFERENTE de "não sei", lá embaixo. -->
     <div class="row">
-      <div class="who"><span class="n">Codex</span><span class="m">gpt-5.4 · plus</span></div>
+      <div class="who"><span class="n">Codex</span><span class="m">7 d · gpt-5.4 · plus</span></div>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
           <div class="now" style="left:0%"></div>
         </div>
       </div>
@@ -128,11 +127,11 @@
     </div>
 
     <div class="row">
-      <div class="who"><span class="n">Claude Code</span><span class="m">opus-4-8</span></div>
+      <div class="who"><span class="n">Claude Code</span><span class="m">5 h + 7 d · opus-4-8</span></div>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
           <div class="now" style="left:0%"></div>
         </div>
       </div>
@@ -145,7 +144,7 @@
     <!-- e o Cursor continua sendo o Cursor: sem dado. Já no primeiro boot
          o app diz a verdade em vez de fingir um zero bonitinho. -->
     <div class="row">
-      <div class="who"><span class="n">Cursor</span><span class="m">sem dado local</span></div>
+      <div class="who"><span class="n">Cursor</span><span class="m">mês · sem dado local</span></div>
       <div class="lane">
         <div class="track empty"><div class="now" style="left:0%"></div></div>
       </div>
@@ -158,7 +157,7 @@
 
   <div class="prov">
     <span class="item"><i class="sw m"></i>Medido</span>
-    <span class="item"><i class="sw d"></i>Derivado</span>
+    <span class="item"><i class="sw d"></i>Inferido</span>
     <span class="item"><i class="sw a"></i>Sem dado</span>
     <span class="src">varrendo ~/.codex · ~/.claude</span>
   </div>

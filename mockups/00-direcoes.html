@@ -149,7 +149,9 @@
 <div class="head">
   <h1>Duas direções. Mesmo dado, mesma hora, mesma verdade.</h1>
   <p>
-    Codex 58% <b>medido</b> · Claude ~61% <b>derivado</b> · Cursor <b>ausente</b>.
+    Cenário real: usuário <b>sem o hook statusLine instalado</b>.
+    Codex 58% <b>medido</b> (disco) · Claude ~61% <b>derivado</b> (fallback: token no disco
+    contra um teto que <b>nenhum provedor publica</b>) · Cursor <b>ausente</b>.
     A pergunta não é "qual é mais bonita" — é <b>qual carrega a assimetria sem
     mentir e sem virar colcha de retalhos</b>. As duas resolvem. Uma resolve melhor.
   </p>
@@ -166,8 +168,9 @@
     </div>
     <p class="pitch">
       Instrumento de medição. Escuro, denso, fio de cabelo, número em mono.
-      Uma pista de 5 h com <b>duas leituras</b>: a tinta (cota queimada) e o cursor
-      (tempo decorrido). <b>O vão entre elas é a resposta.</b> Você lê o mostrador.
+      Uma pista <b>normalizada</b> (0→100% da janela, seja ela 5 h, 7 d ou um mês em US$)
+      com <b>duas leituras</b>: a tinta (cota queimada) e o cursor (tempo decorrido).
+      <b>O vão entre elas é a resposta.</b> Você lê o mostrador.
     </p>
 
     <div class="frame">
@@ -288,15 +291,19 @@
   <div class="vb win">
     <h3>Por que A ganha</h3>
     <ul>
-      <li><b>Escala pra n provedores.</b> Chega o Gemini, o Copilot, o que for:
-        é mais uma pista. B teria que escrever mais uma frase — e 6 frases
-        empilhadas não são "de relance", são <b>leitura</b>.</li>
+      <li><b>Escala pra n janelas de comprimentos diferentes.</b> O eixo normalizado
+        engole 5 h, 7 d e um crédito mensal em <b>dólar</b> na mesma gramática. Foi o que
+        salvou o design quando o Codex <b>matou a janela de 5 h em 12/07</b> — nenhum
+        pixel precisou ser redesenhado. B teria que reescrever cada frase.</li>
       <li><b>O vão tinta↔cursor é uma ideia que só A tem.</b> É o que transforma
         um medidor num <b>conselho</b>: gasto atrás do relógio = folga; na frente =
         você acaba antes. B tem que dizer isso em palavras; A deixa você
         <b>ver</b>.</li>
       <li><b>O ícone de 22 px nasce de A.</b> A proveta é a pista em pé.
         De B não sai ícone nenhum — tipografia não cabe em 22 px.</li>
+      <li><b>A barra composta só existe em A.</b> Medido até a costura, inferido
+        depois dela, na <b>mesma</b> barra. É como o app mostra que a última verdade
+        chegou às 14:35 e o resto é dedução. Em B isso vira uma oração subordinada.</li>
       <li><b>Alarme sem semáforo.</b> A projeção rompendo o trilho é geometria,
         não cor. Em B, "aperta o passo" é só uma frase mais dura, e frase dura
         <b>a gente para de ler na terceira vez</b>.</li>

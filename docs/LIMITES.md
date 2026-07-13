@@ -153,3 +153,261 @@ autenticado do `cursor.com`, e a **Admin API** (`api.cursor.com`, `spendCents`) 
 
 **Denominador em tokens: NÃO PROVADO em nenhum dos três.** Os três só expõem % de utilização.
 Somatório de token do disco = custo e fallback, nunca "quanto sobra".
+
+---
+
+# 4. STATUSLINE — O MECANISMO EXATO (Sonda, Fase 2)
+
+Autor: **Sonda**. Detalha o §1 acima com o que foi extraído do binário
+`/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe` (v2.1.207).
+Responde ponto a ponto as 5 perguntas do Chassi.
+
+> **NÃO ESCREVI NADA em `~/.claude`.** Tudo abaixo é leitura de binário + leitura de config.
+> Nada foi executado. Onde não testei em runtime, está marcado.
+
+## 4.0 ⚠️ A resposta mais importante primeiro (Chassi #5)
+
+**NÃO existe lugar no disco onde o Claude Code persista `rate_limits`. Zero.**
+Leitura passiva **não é possível**. Provas:
+
+```bash
+# 1. Nenhum arquivo de estado do Claude Code contém as chaves (só ruído de plugin/doc):
+$ grep -rl -iE 'five_hour|seven_day|used_percentage|utilization' ~/.claude/ | grep -v '/projects/'
+   -> só ~/.claude/plugins/**, cache/changelog.md, agents/*.md  (docs de terceiros, não estado)
+
+# 2. Não existe sqlite/db nenhum:
+$ find ~/.claude -type f \( -name '*.db' -o -name '*.sqlite*' \)
+   -> vazio
+
+# 3. Telemetria não carrega valor de rate limit (só o NOME de um evento):
+$ cat ~/.claude/telemetry/*.json | grep -o -iE '"[a-z_]*(rate|limit|quota|remain|reset)[a-z_]*"' | sort | uniq -c
+   7 "tengu_policy_limits_fetch"     # nome do evento. nenhum valor.
+
+# 4. OTEL exporta token/custo, mas NENHUMA métrica de rate limit:
+$ strings claude.exe | grep -oiE 'claude_code\.[a-z_.]*' | sort -u
+   claude_code.token.usage, claude_code.cost.usage, ... -> nenhum rate_limit
+
+# 5. O OUTPUT do statusLine (statusLineText) vive só em app-state. Nunca vai pra disco.
+```
+
+O CLI lê o rate limit dos **headers HTTP de resposta** (`anthropic-ratelimit-unified-*`) e
+guarda **só em memória do processo**. Quando o processo morre, o dado morre.
+
+**Corolário duro:** o `statusLine` é o único jeito de capturar isso sem rede — e ele
+**exige escrever em `~/.claude/settings.json`**.
+
+**MAS existe um caminho de ZERO ESCRITA em `~/.claude`** — não é o statusLine, é o endpoint:
+
+| caminho | escreve em `~/.claude`? | precisa de rede? | precisa de credencial? | provado? |
+|---|---|---|---|---|
+| Ler arquivo de disco | — | — | — | ❌ **NÃO EXISTE** |
+| **`GET /api/oauth/usage`** | ✅ **NÃO** | sim | OAuth do Keychain | ⚠️ path sim, resposta **NÃO PROVADA** |
+| `statusLine` hook | ❌ **SIM** (settings.json) | não | não | ⚠️ **NÃO TESTADO em runtime** |
+
+Item do Keychain **confirmado existir** (li só metadados, **nunca o segredo**):
+
+```bash
+$ security find-generic-password -s "Claude Code-credentials"
+class: "genp"
+    "acct"<blob>="jairrebello"
+    "svce"<blob>="Claude Code-credentials"
+```
+
+**Recomendação ao Chassi:** se a meta é "não mexer na casa do Jair", o caminho é
+**Keychain + `/api/oauth/usage`**, não o statusLine. Custo: um prompt do macOS pedindo
+acesso ao Keychain (consentimento explícito do usuário, reversível, e não altera config
+nenhuma). O statusLine só entra se o endpoint não servir.
+
+## 4.1 Schema do settings (Chassi #1) — PROVADO
+
+Schema zod extraído do binário, literal:
+
+```js
+statusLine: E.object({
+  type:                 E.literal("command"),   // <- LITERAL. NÃO existe outro type.
+  command:              E.string(),
+  padding:              E.number().optional(),
+  refreshInterval:      E.number().min(1).optional()
+                         .describe("Re-run the status line command every N seconds in addition to event-driven updates"),
+  hideVimModeIndicator: E.boolean().optional(),
+})
+```
+
+Resposta direta: **sim**, a chave é `statusLine`, e `type` só aceita `"command"` — **não
+existe outro tipo**. `padding` existe. E existem 2 campos que você não citou:
+**`refreshInterval`** (segundos, ≥1) e `hideVimModeIndicator`.
+
+Config atual do Jair (**ele JÁ TEM um statusLine** — ver §4.4):
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "\"/opt/homebrew/bin/node\" \"/Users/jairrebello/.claude/hooks/gsd-statusline.js\""
+}
+```
+
+## 4.2 Invocação (Chassi #2) — PROVADO
+
+**É event-driven, com debounce de 300ms. Polling é OPT-IN e vem desligado.**
+
+Do binário:
+- Dispara quando muda: `messageId` (ou seja, **a cada turno**), `permissionMode`, `vimMode`,
+  `mainLoopModel`, `fastMode`, `effortValue`, `thinkingEnabled`, `prStatus`, e quando o
+  próprio `command` muda.
+- Debounce: `DK(() => { D() }, 300)` → **300ms**.
+- Polling: `Jl(j, W !== undefined ? Math.max(1, W) * 1000 : null)` onde `W = refreshInterval`.
+  **Sem `refreshInterval`, o segundo argumento é `null` → NÃO HÁ POLLING.**
+- Timeout do comando: **5000ms** default (`pPs(e, t, r = 5000, ...)`).
+- É **pulado** se: workspace trust não aceito, ou statusLine desabilitado.
+
+**O que isso significa pro Chassi, e é a parte que morde:** o statusLine é um "push"
+**confiável só ENQUANTO o Claude Code está rodando e ativo**. Fechou o Claude Code, a
+fonte seca. O MyTokens vai ter que tratar isso como **cache com `asOf`** e mostrar a idade
+do dado ("5h: 34% — visto há 12 min"), nunca como leitura ao vivo. Com `refreshInterval: 60`
+ele reatualiza de minuto em minuto **com o app aberto** — e mesmo assim, só se houver
+resposta de API nova pra mudar o número.
+
+## 4.3 Payload no stdin (Chassi #3) — PROVADO (doc embutida no binário)
+
+O comando recebe **um JSON no stdin**. Schema completo, copiado da doc que a própria
+Anthropic embute no binário:
+
+```jsonc
+{
+  "session_id": "string",        // Unique session ID
+  "session_name": "string",      // Optional: set via /rename
+  "prompt_id": "string",         // Optional: UUID do prompt (mesmo do OTel prompt.id)
+  "transcript_path": "string",   // Path do transcript .jsonl  <- amarra com FONTES.md!
+  "cwd": "string",
+  "model": { "id": "string", "display_name": "string" },
+  "workspace": {
+    "current_dir": "string", "project_dir": "string", "added_dirs": ["string"],
+    "git_worktree": "string",   // Optional
+    "repo": { "host": "string", "owner": "string", "name": "string" }  // Optional
+  },
+  "version": "string",           // versão do Claude Code
+  "output_style": { "name": "string" },
+
+  "context_window": {
+    "total_input_tokens":  number,   // tokens no contexto AGORA (incl. cache read/write)
+    "total_output_tokens": number,
+    "context_window_size": number,   // ex: 200000
+    "current_usage": {               // null se não houver mensagem ainda
+      "input_tokens": number, "output_tokens": number,
+      "cache_creation_input_tokens": number, "cache_read_input_tokens": number
+    } | null,
+    "used_percentage":      number | null,
+    "remaining_percentage": number | null
+  },
+
+  "effort":   { "level": "low"|"medium"|"high"|"xhigh"|"max" },  // Optional
+  "thinking": { "enabled": boolean },
+
+  // ====== O QUE NOS INTERESSA ======
+  "rate_limits": {   // Optional: "Only present for subscribers AFTER FIRST API RESPONSE"
+    "five_hour": {   // Optional: "5-hour session limit (may be absent)"
+      "used_percentage": number,   // 0-100
+      "resets_at":       number    // Unix epoch SEGUNDOS
+    },
+    "seven_day": {   // Optional: "7-day weekly limit (may be absent)"
+      "used_percentage": number,   // 0-100
+      "resets_at":       number    // Unix epoch SEGUNDOS
+    }
+  },
+
+  "vim":      { "mode": "INSERT"|"NORMAL"|"VISUAL"|"VISUAL LINE" },  // Optional
+  "agent":    { "name": "string", "type": "string" },                // Optional (--agent)
+  "pr":       { "number": number, "url": "string", "review_state": "approved"|"pending"|"changes_requested"|"draft" },
+  "worktree": { "name": "string", "path": "string", "branch": "string",
+                "original_cwd": "string", "original_branch": "string" }
+}
+```
+
+Respondendo suas perguntas exatas:
+- **`rate_limits.five_hour.used_percentage`** → `number`, **0–100** (o CLI já fez `utilization * 100`).
+- **`resets_at`** → **existe**, e é **Unix epoch em SEGUNDOS** (não ISO, não ms).
+- **`session_id`, `cwd`, `model`** → todos presentes, no topo.
+- **Bônus que você não pediu e vale ouro:** `context_window.used_percentage` (quanto do
+  contexto da sessão foi consumido) e `transcript_path` — que **amarra o statusLine ao
+  arquivo `.jsonl`** de `docs/FONTES.md`. Dá pra correlacionar rate limit ao gasto por sessão.
+
+**⚠️ 3 armadilhas do payload:**
+1. `rate_limits` é **Optional** e **"only present after first API response"**. Numa sessão
+   recém-aberta, **ele não vem**. O parser tem que tolerar ausência — não pode assumir presença.
+2. `five_hour` e `seven_day` são independentemente opcionais ("may be absent"). Trate um a um.
+3. Não existe `seven_day_opus`/`seven_day_sonnet` **aqui**. Esses só aparecem no objeto interno
+   / headers (§1). O statusLine expõe **só** `five_hour` e `seven_day`.
+
+**NÃO PROVADO:** nunca vi um payload REAL com `rate_limits` preenchido — não executei o hook.
+O schema acima é a doc do binário, não uma captura. **Chassi: valide na primeira execução.**
+
+## 4.4 Convivência (Chassi #4) — o Jair JÁ TEM statusLine. Cuidado.
+
+```bash
+$ jq '.statusLine' ~/.claude/settings.json
+{ "type": "command",
+  "command": "\"/opt/homebrew/bin/node\" \"/Users/jairrebello/.claude/hooks/gsd-statusline.js\"" }
+```
+
+**Não existe encadeamento nativo.** O schema tem **um único** campo `command: string`.
+Sobrescrever = **destruir o statusline do GSD dele**. Isso é inaceitável.
+
+E não dá pra pegar carona: o `gsd-statusline.js` dele **não consome `rate_limits`** e não
+persiste nada útil (`grep -nE 'rate_limits|five_hour|used_percentage' ~/.claude/hooks/gsd-statusline.js`
+→ zero match). Ele lê o stdin (linha 301) mas ignora esse campo.
+
+**Única saída honesta: wrapper que faz tee e repassa.** Pegadinhas reais:
+
+1. **stdin só pode ser lido UMA vez.** O wrapper tem que **bufferizar o stdin inteiro** antes
+   de qualquer coisa, e depois **reescrever esse buffer no stdin do comando original**.
+2. **stdout tem que ser repassado byte a byte.** O que o original imprimir é o que a status
+   line mostra. Nosso wrapper não pode adicionar nem uma quebra de linha.
+3. **exit code** tem que ser propagado.
+4. **timeout de 5s** é do Claude Code, e é pro wrapper INTEIRO — o tee tem que ser rápido.
+   Escreva o cache de forma **não bloqueante e atômica** (write em tmp + `rename`), e
+   **nunca** deixe o cache falhar derrubar o statusline do Jair (envolva em try/catch mudo).
+5. **Se o comando original mudar** (o GSD atualiza), nosso wrapper fica apontando pra versão
+   velha. Guarde o comando original em arquivo NOSSO e re-leia a cada execução.
+
+Forma mínima e reversível:
+
+```bash
+#!/bin/sh
+# mytokens-statusline-wrapper.sh — tee do payload, repassa tudo pro comando original.
+# Reverter = restaurar settings.json.statusLine.command pro valor original. Uma linha.
+set -e
+PAYLOAD=$(cat)                                    # 1. bufferiza stdin UMA vez
+
+# 2. tee atômico, silencioso, não-bloqueante. NUNCA derruba o statusline do usuário.
+{ printf '%s' "$PAYLOAD" > "$HOME/.mytokens/ratelimits.json.tmp" \
+  && mv -f "$HOME/.mytokens/ratelimits.json.tmp" "$HOME/.mytokens/ratelimits.json"; } 2>/dev/null || true
+
+# 3. repassa o MESMO payload pro comando original, stdout byte a byte, exit code preservado.
+printf '%s' "$PAYLOAD" | exec "/opt/homebrew/bin/node" "$HOME/.claude/hooks/gsd-statusline.js"
+```
+
+Config resultante (a **única** mudança em `~/.claude/settings.json`):
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "/Users/jairrebello/.mytokens/mytokens-statusline-wrapper.sh"
+}
+```
+
+**Reversão = 1 campo string de volta ao valor original.** Guarde o valor antigo antes de
+escrever. Idealmente: faça backup de `settings.json` inteiro e ofereça um botão "Desinstalar".
+
+**REGRA:** o MyTokens **não escreve isso sem o Jair clicar em "instalar"**, com a config
+antiga mostrada na tela e um botão de desfazer. Mexer na casa do usuário sem pedir é
+exatamente o tipo de coisa que quebra a confiança no produto.
+
+## 4.5 Ordem recomendada pro Chassi
+
+1. **Tente `/api/oauth/usage` + Keychain primeiro.** Zero escrita em `~/.claude`. Se
+   funcionar, o statusLine vira desnecessário. **Valide o formato da resposta** — é NÃO PROVADO.
+2. **Se o endpoint não servir**, ofereça o statusLine como **opt-in explícito**, com wrapper
+   (§4.4), backup e botão de desinstalar.
+3. **Nunca** sobrescreva o `command` do Jair sem encadear.
+4. Trate o número sempre como **cache com `asOf`**. Mostre a idade. A fonte seca quando o
+   Claude Code fecha.

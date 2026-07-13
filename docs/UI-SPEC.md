@@ -1,348 +1,557 @@
-# MyTokens — UI-SPEC
+# MyTokens — UI-SPEC (SwiftUI / macOS)
 
 Sistema de design. Direção **Bancada**.
 Autoria: Prisma. Implementação: Vitral. Divergência que ninguém cobra vira o design de outra pessoa.
 
-Mockups: `mockups/index.html` (abre no browser, sem build).
-Tokens executáveis: `mockups/bancada.css` — copiar de lá, não redigitar.
+- **Direção visual:** `mockups/index.html` — abre no browser. É a *intenção*, não o alvo.
+  **Não porte o CSS.** Metade dele era esforço pra fingir de macOS. Agora é de graça.
+- Escrito contra: `docs/LIMITES.md` (Sonda), `docs/CURSOR.md` (Sextante). Lidos em 2026-07-13.
+- Alvo: macOS 14+, SwiftUI, `MenuBarExtra` + janela.
 
 ---
 
-## 0. O problema central, e a solução
+## 0. O problema central — mudou de forma
 
-As três fontes não são três valores. São **três níveis de certeza sobre um valor**.
+Na Fase 1 o problema era **certeza** (medido × derivado × ausente). O `statusLine` hook matou
+metade disso: o Claude agora vem medido, igual ao Codex.
 
-| Fonte | O que o disco entrega | Certeza |
+O que sobrou é mais sutil e mais difícil: **as janelas têm FORMAS diferentes.**
+
+| Provedor | Janelas | Unidade |
 |---|---|---|
-| Codex | `rate_limits.primary.used_percent` + `resets_at` | **medido** |
-| Claude Code | só gasto (4 buckets de token). Teto do plano não existe no disco | **derivado** |
-| Cursor | nada local | **ausente** |
+| Claude | **5 h** + **7 d** | % de utilização |
+| Codex | **7 d** apenas (a de 5 h morreu em 2026-07-12) | % de utilização |
+| Cursor | **mês** — ou **nada**, sem credencial | **US$** de compute |
 
-Se os três aparecem com o mesmo anel de progresso, o app mente com CSS.
-A saída **não** é dar um card diferente pra cada um — isso vira colcha de retalhos.
-A saída é: **certeza vira uma dimensão visual de primeira classe**, e a *mesma* peça
-(a pista) exibe as três com texturas diferentes.
+Três formas. Nenhuma mentirosa. Todas legítimas. E se eu deixar o **provedor** ser o eixo
+principal da tela, viram colcha de retalhos na hora — porque aí um provedor tem 2 barras, outro
+tem 1, outro tem meia, e a tela fica torta sem motivo.
 
-### A regra de granularidade — o detalhe que salva o design
+### A decisão: o eixo principal não é o provedor. É o TEMPO ATÉ TE PARAR.
 
-**Certeza é por CAMPO, não por provedor.**
+**Uma linha por JANELA, não por provedor. Ordenadas por folga, a mais apertada em cima.**
 
-No Claude, o **início da janela é MEDIDO** (está no `timestamp` do primeiro `assistant`
-do jsonl). Só o **teto** é derivado. Então:
+*Porquê: a pergunta do usuário é "posso continuar?", e quem responde isso é UMA janela — a que acaba primeiro. Provedor é metadado dela, não o contrário. Assim, "o Claude tem 2 linhas e o Codex tem 1" deixa de ser tensão de design e vira só um fato sobre o Claude.*
 
-- o horário de reset do Claude é **sólido** (17:40, sem til);
-- a % do Claude é **reticulada** (~61%, com faixa 52–70).
+Isso resolve a assimetria por **recusa**: eu não tento equilibrar os provedores, porque eles não são
+equilibrados. Escala pra qualquer provedor com qualquer número de janelas, sem redesenho.
 
-Na mesma linha, um campo duro e um campo mole. É isso que impede o Claude de virar
-"o provedor borrado" e faz o app parecer honesto em vez de derrotado.
-*Porquê: se a incerteza fosse aplicada ao provedor inteiro, jogaríamos fora dado bom que nós temos.*
+### A tela tem DUAS zonas
 
-### As três texturas
+| Zona | O que é | Peso |
+|---|---|---|
+| **O QUE APERTA** | a janela de menor folga. **Uma só.** Instrumento inteiro. | herói |
+| **OS OUTROS TETOS** | todas as outras, meia altura, ordenadas por folga. | livro-razão |
 
-| | MEDIDO | DERIVADO | AUSENTE |
+*Porquê: só UMA janela pode te parar primeiro. Promover uma a herói é o que impede as três formas de brigarem — elas nunca competem pelo mesmo espaço.*
+
+### As três formas se distinguem pela GRADUAÇÃO, não pelo instrumento
+
+Mesma pista, mesma tinta, mesma gramática. **Muda a régua:**
+
+| Janela | Graduação | Rótulo do eixo |
+|---|---|---|
+| 5 h | 5 marcas — **hora** | `0h · 1h · 2h · 3h · 4h · 5h` |
+| 7 d | 7 marcas — **dia** | `seg · ter · qua …` |
+| Mês (US$) | 4 marcas — **US$ 5** | `$0 · $5 · $10 · $15 · $20` |
+
+*Porquê: régua em cm e régua em polegada são obviamente o mesmo objeto, e obviamente medem coisas diferentes. A graduação diz a escala de tempo sem gastar um rótulo — e é o que faz "5 h" e "7 d" nunca serem confundidos, mesmo tendo o mesmo comprimento na tela.*
+
+E o **eixo é normalizado** (0 → 100% *daquela* janela).
+*Porquê: é a única unidade em que 5 h, 7 d e US$ 20/mês são honestamente comparáveis. Foi o que salvou o design quando o Codex matou a janela de 5 h — nenhum pixel precisou mudar.*
+
+### O veredito carrega o próprio ponto cego
+
+O Cursor pode não ter dado nenhum. Então o veredito **nunca** afirma mais do que sabe:
+
+> **Dá pra continuar** — dos tetos que eu enxergo.
+> O Cursor não me conta nada. *[conectar]*
+
+*Porquê: um herói escolhido entre 3 janelas quando existem 4 é um herói possivelmente errado. A alternativa honesta não é esconder o Cursor — é **escopar a afirmação**. Uma janela ausente nunca pode ser promovida a herói (não dá pra provar que ela aperta), mas ela sempre aparece como ressalva do veredito.*
+
+---
+
+## 1. Certeza — o que sobrou (e continua valendo)
+
+Ainda existem três certezas, só que agora são **estados de runtime**, não propriedades do provedor:
+
+| | MEDIDO | INFERIDO | AUSENTE |
 |---|---|---|---|
-| Tinta | sólida | reticulado 1 px / 3 px | nenhuma |
-| Topo | corte reto, 2 px sólido | pontilhado 2 px on / 2 px off | — |
-| Extra | — | faixa de incerteza (piso–teto, 2 ticks duros) | pista tracejada |
-| Número | `58%` | `~61%` + range `52–70` | `—` (nunca `0`) |
-| Peso | 600 | 500 | 400 |
-| Selo | **nenhum** | rodapé diz "estimado" | rodapé diz "sem dado local" |
+| Quando | hook/disco entregou | fallback: token do disco ÷ teto **não publicado** | sem credencial, sem arquivo |
+| Tinta | sólida | **reticulada** | nenhuma |
+| Topo | corte reto | pontilhado | — |
+| Número | `50%` | `~53%` + faixa `41–68` | `—` (**nunca** `0`) |
+| Selo | **nenhum** | rodapé: "estimado" | rodapé: "sem dado" |
 
-**Medido é o caso não-marcado.** Não tem badge, não tem ícone, não tem nada.
-*Porquê: a honestidade não pode custar enfeite. Quem paga o preço visual é a incerteza — que é o que ela merece.*
+**Medido é o caso não-marcado.** Sem badge, sem selo.
+*Porquê: honestidade não paga enfeite. Quem paga o preço visual é a incerteza.*
 
-O reticulado é convenção cartográfica de "inferido", com 300 anos de uso: área não-sólida
-= dado não-sólido. Não precisa de legenda pra ser **sentida** — a legenda existe só pra
-ser confirmada.
+**Nunca `0`.** Zero é uma afirmação. Ausente é `—`.
 
-**Dois canais, sempre.** Textura (olho de raspão) + til/palavra (olho que para).
-*Porquê: um canal só é um ponto único de falha de compreensão.*
+### A barra composta (`mockups/01`)
 
-**Nunca zero.** Zero é um número, e número é uma afirmação. Ausente é `—`.
+O `statusLine` só dispara **enquanto o Claude Code roda**. Logo todo valor medido tem **idade**.
+Se a última verdade chegou às 14:35 e o disco registrou gasto desde então, a barra é composta:
+
+```
+[========sólido========][:::reticulado:::]
+ medido, statusLine 14:35   inferido do disco
+                        ↑ a COSTURA = carimbo de hora da última verdade
+```
+
+*Porquê da costura: sem ela a barra vira degradê, e degradê não diz ONDE o fato acaba e o palpite começa.*
+
+Em SwiftUI: um `HStack(spacing: 0)` de duas `Rectangle`s dentro de um `.clipShape`, com um
+`Divider` de 1pt entre elas. Uma linha de código. No CSS era um `repeating-linear-gradient` e um
+pseudo-elemento.
 
 ---
 
-## 1. Cor
+## 2. Cor — semântica do sistema, não hex solto
 
-**Regra que governa tudo: o app é ACROMÁTICO.**
-Existe **uma** matiz (ember, ~40–48°) e ela **não significa perigo** — significa **calor = atividade**.
+**Regra: quase tudo é semântico. A única cor nossa é a que carrega SIGNIFICADO.**
 
-```
-cinza (ember-cold)  →  provedor parado
-ember               →  está queimando AGORA
-ember-hot           →  vai estourar
-```
+### Texto e chrome — 100% do sistema
 
-Uma matiz só, croma crescente. *Porquê: sem verde e sem amarelo no sistema, não existe semáforo nem se eu quisesse fazer um. A restrição é a garantia.*
-
-```css
-/* superfícies — preto QUENTE (60°). Preto-azulado é o SaaS de 2021. */
---canvas:     oklch(0.165 0.006 60);
---surface:    oklch(0.205 0.007 60);
---surface-hi: oklch(0.235 0.008 60);
---track:      oklch(0.265 0.007 60);
---line:       oklch(0.305 0.008 60);
---line-soft:  oklch(0.255 0.007 60);
-
-/* tinta — bone. É a cor do DADO, não do texto. */
---ink-0: oklch(0.955 0.008 80);   /* número principal        */
---ink-1: oklch(0.780 0.008 80);   /* número secundário       */
---ink-2: oklch(0.590 0.008 80);   /* rótulo                  */
---ink-3: oklch(0.455 0.008 80);   /* unidade, rótulo apagado */
---ink-4: oklch(0.360 0.008 80);   /* traço fantasma          */
-
-/* ember — a única matiz do app */
---ember-cold: oklch(0.700 0.035 45);   /* quase cinza: medido, parado */
---ember:      oklch(0.760 0.130 48);   /* vivo: queimando agora       */
---ember-hot:  oklch(0.680 0.195 32);   /* ESTOURO. E só estouro.      */
+```swift
+.foregroundStyle(.primary)      // número principal
+.foregroundStyle(.secondary)    // número secundário, nome do provedor
+.foregroundStyle(.tertiary)     // rótulo, unidade
+.foregroundStyle(.quaternary)   // traço fantasma, graduação
+Color(nsColor: .separatorColor) // fios
 ```
 
-`--ember-hot` aparece em, no máximo, **dois lugares por tela**: o transbordo da projeção
-e uma palavra da frase. *Porquê: croma escassa grita mesmo sendo pequena; croma abundante vira decoração e ninguém olha.*
+*Porquê: `.primary`…`.quaternary` são **vibrantes** sobre material. Um cinza fixo em cima de um `NSVisualEffectView` fica chapado e o popover imediatamente para de parecer nativo. Esse é o erro que denuncia um app "web preso numa janela".*
 
-Light mode existe e está em `bancada.css`. *Porquê: o popover vive na barra do sistema e não escolhe o tema do usuário.*
+### Superfícies — material, não cor
+
+| Peça | Material | Porquê |
+|---|---|---|
+| Popover (`MenuBarExtra`) | **o do sistema. Não pinte nada.** | *o `MenuBarExtra(.window)` já traz o material certo. Pintar um fundo opaco em cima mata a vibrancy — é o pecado capital do pivot.* |
+| Janela principal | `NSVisualEffectView(.underWindowBackground)` | *pega o desktop de leve. É o "de graça" que o Electron não tinha.* |
+| Painel do número cru | `.quaternary.opacity(0.5)` sobre o material | *elevação por densidade, não por caixa.* |
+| Pista (track) | `Color.primary.opacity(0.10)` | *é ausência de tinta, não uma cor.* |
+
+**Zero `Color(hex:)` para chrome. Zero fundo opaco dentro do popover.**
+
+### A ÚNICA cor nossa: o ember
+
+Uma matiz. Não significa perigo — significa **calor = atividade**.
+
+```
+ember-cold  →  provedor parado        (deriva de .secondary, sem croma própria)
+ember       →  está queimando AGORA
+ember-hot   →  vai estourar
+```
+
+*Porquê: sem verde e sem amarelo no sistema, não existe semáforo nem se eu quisesse fazer um. A restrição é a garantia.*
+
+**Asset Catalog, Color Set, 2 aparências (Any + Dark).** Nunca hex inline.
+
+| Nome | Light (sRGB) | Dark (sRGB) | Origem |
+|---|---|---|---|
+| `ember` | `#B85F21` | `#E8873C` | `oklch(.58 .15 42)` / `oklch(.76 .13 48)` |
+| `emberHot` | `#B33418` | `#E85231` | `oklch(.53 .20 30)` / `oklch(.68 .195 32)` |
+
+> Vitral: gerei do OKLCH. Confere no Color Picker e ajusta se o contraste em light não bater
+> 4.5:1 contra o material claro. **O valor certo é o que passa no contraste, não o meu hex.**
+
+**`emberHot` aparece em no máximo DOIS lugares por tela:** o transbordo da projeção e uma palavra
+da frase. *Porquê: croma escassa grita mesmo sendo pequena; croma abundante vira decoração.*
+
+### Não use `Color.accentColor`
+
+*Porquê: o accent é configurável pelo usuário no macOS. Se ele escolher verde, "queimando agora" fica verde e a semântica quebra. Nossa cor carrega significado — significado não é preferência.*
 
 ---
 
-## 2. Tipo
+## 3. Tipografia — sistema, com pesos reais
 
-Duas famílias, papéis **fixos**. Nunca trocar — é o que faz parecer instrumento.
+```swift
+// VEREDITO — e só ele
+.font(.system(size: 30, weight: .semibold))
+.tracking(-0.4)
 
-```css
---font-ui:  -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;  /* rótulo humano */
---font-num: ui-monospace, "SF Mono", "JetBrains Mono", monospace;          /* número medido */
+// NÚMERO HERÓI (a % da janela que aperta)
+.font(.system(size: 34, weight: .medium, design: .monospaced))
+.monospacedDigit()
+
+// NÚMERO DE LINHA
+.font(.system(size: 15, weight: .medium, design: .monospaced))
+.monospacedDigit()
+
+// NOME DO PROVEDOR / JANELA
+.font(.system(size: 13, weight: .medium))
+
+// RÓTULO (caixa alta)
+.font(.system(size: 10, weight: .medium))
+.kerning(0.6)
+
+// RODAPÉ / PROCEDÊNCIA
+.font(.system(size: 11, weight: .regular))
 ```
 
-*Porquê: grotesca diz o que a coisa é; mono diz o que a máquina mediu. Separar os papéis é o que dá autoridade ao número.*
+**`.monospacedDigit()` em TODO número, sem exceção.**
+*Porquê: número que treme de largura ao atualizar destrói a leitura de relance — que é o produto inteiro. No CSS isso era `font-feature-settings: "tnum"`; aqui é um modifier.*
 
-```
---t-micro  10px   rótulo caixa alta, tracking .09em
---t-xs     11px
---t-sm     13px   corpo
---t-md     15px   subtítulo, nome do provedor
---t-lg     19px   número secundário (relógio, folga)
---t-xl     26px   a % de cada pista
---t-2xl    40px
---t-3xl    54px   O VEREDITO. e só ele.
-```
+**`design: .monospaced` só para NÚMERO. Nunca para rótulo.**
+*Porquê: grotesca diz o que a coisa é; mono diz o que a máquina mediu. Separar os papéis é o que dá autoridade ao número — e é o que faz parecer instrumento e não dashboard.*
 
-**`font-feature-settings: "tnum" 1` no `body`, sem exceção.**
-*Porquê: número que treme de largura ao atualizar destrói a leitura de relance — que é o produto inteiro.*
+**Não use `design: .rounded` em lugar nenhum.**
+*Porquê: `.rounded` é a voz do Fitness/Reminders — amigável. Este app é um instrumento de medição. Amigável aqui soa como quem está te escondendo alguma coisa.*
 
 ### Peso como tensão
 
-A tensão sobe por **gramatura**, não por matiz. Quanto mais perto do teto, mais pesado e mais claro o número:
+A tensão sobe por **gramatura**, não por matiz.
 
-| `data-heat` | faixa | cor | peso |
-|---|---|---|---|
-| 0 | 0–25% | `--ink-2` | 400 |
-| 1 | 25–50% | `--ink-1` | 500 |
-| 2 | 50–75% | `--ink-0` | 600 |
-| 3 | 75–100% | `--ink-0` | 700, tracking −.03em |
-| 4 | >100% | `--ember-hot` | 700 |
+| Faixa | `foregroundStyle` | `weight` |
+|---|---|---|
+| 0–25% | `.secondary` | `.regular` |
+| 25–50% | `.secondary` | `.medium` |
+| 50–75% | `.primary` | `.medium` |
+| 75–100% | `.primary` | `.semibold` |
+| >100% | `Color.emberHot` | `.semibold` |
 
 *Porquê: `norte-ux` #4 pede tensão por densidade e peso. Isto é literalmente isso, e não gasta uma gota de cor.*
 
 ---
 
-## 3. Espaço, raio, sombra
+## 4. Espaço, raio, sombra
 
-**Espaço — base 4.** `4 · 8 · 12 · 16 · 24 · 32 · 48 · 64`
-*Porquê: 4 é o menor passo que o macOS respeita em @1x e @2x sem borrar.*
+**Espaço — base 4.** `4 · 8 · 12 · 16 · 24 · 32 · 48`
+*Porquê: menor passo que o macOS respeita em @1x e @2x sem borrar.*
 
-**Raio — baixo.** `0` (pista, régua, tinta) · `3` (chip, botão) · `6` (painel) · `10` (popover).
-*Porquê: raio alto é bolha de SaaS; instrumento tem canto vivo. E **nada arredonda um dado** — a pista é raio 0 porque a borda dura É a informação.*
+**Raio — `.continuous`, sempre.**
 
-**Sombra — quase não existe.** No escuro, sombra não separa nada; elevação é fio de 1 px + `--bevel` (brilho interno no topo).
-Sombra de verdade só no **popover** — *porquê: é a única peça que de fato flutua sobre o desktop do usuário.*
+```swift
+RoundedRectangle(cornerRadius: 6, style: .continuous)   // painel
+RoundedRectangle(cornerRadius: 4, style: .continuous)   // chip, botão
+Rectangle()                                             // A PISTA. raio ZERO.
+```
+
+*Porquê `.continuous`: é o squircle da Apple. `.circular` do lado do chrome do sistema fica sutilmente errado, e "sutilmente errado" é exatamente o que faz um app não parecer nativo.*
+*Porquê a pista é raio 0: **nada arredonda um dado**. A borda dura da tinta É a informação (é o sinal de "medido"). Arredondar é borrar a promessa.*
+
+**Sombra — ZERO sombra customizada.**
+*Porquê: a janela e o popover já ganham sombra do sistema, com a curva certa. Uma `.shadow()` desenhada por nós dentro de um popover nativo é a assinatura visual de um app web. Elevação aqui é material + `separatorColor`, e mais nada.*
 
 ---
 
-## 4. Grid
+## 5. Grid
 
 ### A PISTA — a peça central
 
 Um eixo, **duas leituras**:
 
 ```
-eixo x   = a janela de 5 h (0% → 100% do TEMPO)
-tinta    = % da COTA queimada
-cursor   = % do TEMPO decorrido  ("agora")
+eixo x   = 0 → 100% DAQUELA janela
+tinta    = % da cota queimada
+cursor   = % do tempo decorrido nessa janela  ("agora")
 ```
 
 **O vão entre a tinta e o cursor é a resposta do app.**
+Tinta **atrás** do cursor → gasta mais devagar que o relógio: **folga**.
+Tinta **na frente** → acaba antes da janela fechar.
 
-- tinta **atrás** do cursor → você gasta mais devagar que o relógio. Folga.
-- tinta **na frente** → você acaba antes da janela fechar.
+*Porquê: as duas grandezas são frações da mesma janela, logo são honestamente comparáveis no mesmo eixo. Isso transforma um medidor num conselho — sem escrever uma palavra.*
 
-*Porquê: as duas grandezas são frações da mesma janela, logo são honestamente comparáveis no mesmo eixo. E isso transforma um medidor num conselho — sem escrever uma palavra.*
+O cursor **não** se alinha entre as pistas: as janelas têm comprimentos diferentes.
+*Porquê: uma linha vertical atravessando todas implicava que as janelas eram a mesma coisa. Era bonito e era mentira.*
 
-O **cursor do agora atravessa as três pistas na mesma coordenada**.
-*Porquê: é o mesmo relógio. É o que costura três unidades diferentes num app só, e é por isso que a tela não parece colcha de retalhos.*
+| | Herói | Livro-razão | Popover |
+|---|---|---|---|
+| altura da pista | 16 pt | 8 pt | 8 pt |
+| graduação | sim, rotulada | sim, sem rótulo | só marcas |
+| agulha do "agora" | sim | sim | sim, sem cabeça |
+| projeção | sim (>70%) | não | só no herói |
 
-O Cursor (ausente) **também tem cursor de tempo**: o relógio a gente sempre sabe.
-*Porquê: falta a tinta, não a pista. Meia leitura honesta > zero mentiroso.*
+### Layout
 
-Altura: **14 px** na janela, **8 px** no popover. Ticks de hora: 1 px em `--canvas` a 55%.
+```
+Janela principal: 640 × 460 pt   (não 940 — app nativo é mais denso que web)
+Popover:          320 pt de largura, altura por conteúdo
+Grid da linha:    [ nome 140pt ][ pista flexível ][ leitura 110pt ]
+```
+
+Use `Grid` do SwiftUI com `GridRow`, não `HStack` com `.frame(width:)` chumbado.
+*Porquê: `Grid` alinha as colunas entre linhas sozinho. Largura chumbada quebra quando o nome do provedor cresce.*
 
 ### PROJEÇÃO E TRANSBORDO
 
 Aparece só acima de **70%**. *Porquê: abaixo disso é ruído — a resposta já é "pode ir".*
 
-A projeção estende a tinta do agora até o fim da janela no ritmo dos últimos 20 min.
-Se ela passa de 100%, **o excedente é desenhado FORA do trilho** (`.overrun`, hachura em `--ember-hot`).
+Se a projeção passa de 100%, **o excedente é desenhado FORA do trilho**, em `emberHot` hachurado.
 
 **O trilho é o limite. O que sai dele é o que você não tem.**
 *Porquê: o alarme vira geometria em vez de cor — e o fato medido (a barra sólida) nunca é recolorido por um palpite sobre o futuro. Futuro nenhum merece ser desenhado como fato.*
 
-### JANELA / POPOVER
-
-| | janela | popover |
-|---|---|---|
-| largura | 940 px | 340 px |
-| grid | `148px · 1fr · 132px` | `1fr · auto`, pista em linha própria |
-| veredito | 54 px | 26 px |
-| pista | 14 px, com agulha | 8 px, sem agulha |
-
-O que **não** muda entre os dois: o reticulado do derivado.
-*Porquê: se ele sumisse no popover, o app mentiria justamente onde é mais olhado.*
-
 ### PROCEDÊNCIA
 
-A legenda medido/derivado/ausente é **permanente**, no rodapé das duas telas.
-Não é tooltip, não é modal, não é "saiba mais".
+A legenda medido/inferido/ausente é **permanente**, no rodapé. Não é tooltip, não é popover.
 *Porquê: é o rodapé de um instrumento de medição. Contrato de honestidade se imprime na peça.*
 
 ---
 
-## 5. Estados
+## 6. Movimento — spring, e uma regra dura
 
-| Estado | Como se lê |
-|---|---|
-| **Vazio (1º boot)** | Instrumento **ligado**, pistas abertas, relógio em 0, pulso de 2,4 s. Mostra os paths que já encontrou. *Porquê: a primeira impressão não é um pedido de configuração — é a prova de que o app já sabe onde procurar. É o que compra confiança no segundo 1.* |
-| **Normal** | Veredito + 3 pistas. |
-| **Quase lá (≥75%)** | A frase muda ("Aperta o passo"), o número engorda (`heat=3`), a projeção rompe o trilho. **A tela não fica vermelha.** |
-| **Estourado (≥100%)** | Tinta cheia + régua acima da boca no ícone. |
-| **Reset** | Ver §6. |
-| **Sem dado** | Pista tracejada, `—`, link "conectar". |
-| **Pausado / sem leitura** | Ícone íntegro a 42% de alfa. *Porquê: diferente de "sem dado" (tracejado) — aqui quem parou fui eu, não a fonte.* |
+```swift
+// DADO — avanço da tinta, mudança de número
+.animation(.spring(response: 0.42, dampingFraction: 1.0), value: used)
+
+// DADO — o dreno do reset
+.animation(.spring(response: 0.90, dampingFraction: 1.0), value: windowID)
+
+// CHROME — hover, revelar, o card de convite
+.animation(.spring(response: 0.30, dampingFraction: 0.82), value: isHovering)
+```
+
+### A regra dura do pivot: `dampingFraction: 1.0` em TUDO que representa um dado medido.
+
+*Porquê: overshoot faz a barra passar do valor e voltar. Por ~80 ms ela exibe um número que é **mentira**. Numa UI de fitness isso é charme; num instrumento de medição é um defeito. Damping 1.0 não é escolha estética — é a mesma disciplina de honestidade do reticulado, aplicada ao tempo.*
+
+Bounce (`dampingFraction < 1.0`) só em **chrome**: card que entra, hover, botão. Nunca na tinta,
+nunca no número.
+
+### O dreno é MAIS LENTO que o avanço (0.90 contra 0.42)
+
+*Porquê: encher é rotina, esvaziar é acontecimento. Se drenasse rápido, o alívio passava batido — e o alívio é o ponto do reset.*
+
+### Número trocando de valor
+
+```swift
+Text(pct, format: .percent)
+    .contentTransition(.numericText(countsDown: isDraining))
+```
+
+*Porquê: dá o rolo de odômetro nativo, de graça, e `countsDown: true` faz o reset contar pra trás. No CSS eu tive que empilhar 18 `<br>` e animar `steps(18)`. Aqui é um modifier — este é o tipo de coisa que o pivot pagou.*
+
+### Reduce motion
+
+```swift
+@Environment(\.accessibilityReduceMotion) private var reduceMotion
+// → .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(...))
+```
+
+Estado **nunca** se perde: reduce motion corta a animação, nunca a informação.
 
 ---
 
-## 6. Movimento
+## 7. Os estados
 
-Anima **estado**, nunca decoração. 60 fps ou não anima.
+### VAZIO (1º boot)
 
-```css
---dur-tick:  140ms;   /* número trocando de valor              */
---dur-ui:    200ms;   /* hover, revelar                        */
---dur-state: 420ms;   /* tinta avançando na pista              */
---dur-reset: 900ms;   /* O DRENO. o momento de alívio.         */
+Instrumento **ligado**, pistas abertas, cursor em 0. Mostra os paths que já encontrou
+(`~/.claude/projects`, `~/.codex/sessions`).
 
---ease-out:   cubic-bezier(0.20, 0.70, 0.20, 1.00);  /* assenta e para   */
---ease-drain: cubic-bezier(0.55, 0.00, 0.30, 1.00);  /* expira: puxa, solta */
-```
+*Porquê: a primeira impressão não é um pedido de configuração — é a prova de que o app já sabe onde procurar. É o que compra confiança no segundo 1.*
 
-**Regra dura do reset: o dreno (900 ms) é MAIS LENTO que o avanço (420 ms).**
-*Porquê: encher é rotina, esvaziar é acontecimento. Se drenasse rápido, o alívio passava batido — e o alívio é o ponto.*
+### CARREGANDO — **nunca um spinner onde cabe uma contagem**
 
-Sequência do reset (total 1.500 ms):
+A 1ª varredura lê ~6.100 arquivos. Isso demora.
 
 ```
-0 ms      trava. o número congela, a agulha some.
-120 ms    a TINTA DRENA da direita pra esquerda (900 ms, ease-drain).
-          volume saindo — não barra encolhendo.
-120 ms    um clarão fraco corre JUNTO com o dreno (.wash). é o que faz
-          o esvaziar ser SENTIDO, não só visto.
-120 ms    o número desce junto, mesma curva, mesma duração.
-          se número e barra não andarem juntos, o olho não acredita.
-900 ms    a agulha do agora salta de 100% pra 0%: a janela virou.
-1020 ms   a headline troca. SÓ DEPOIS que a pista esvaziou.
-1180 ms   o novo relógio entra, subindo 6 px.
+lendo 2.418 / 6.111 sessões
+[████████░░░░░░░░░░░░░░░]     ← a própria pista, enchendo com o que já foi confirmado
 ```
 
-**As outras pistas não se mexem.** *Porquê: as janelas são independentes. Se tudo animasse junto, o app mentiria sobre a mecânica dos limites e o usuário aprenderia errado.*
+*Porquê: um spinner diz "espera" e não diz mais nada. Uma contagem diz "espera, estou em 40%, e o que você está vendo já é verdade". Spinner é a resposta de quem não sabe o denominador — e nós sabemos: é `readdir`.*
 
-Nada pisca. Nada quica. Nada faz confete. *Porquê: isso não é uma conquista — é o dia recomeçando.*
+Depois do 1º boot, releitura é incremental e **não tem estado de carregando**. A tela nunca pisca.
+*Porquê: o app é olhado 30x por dia. Flash de skeleton 30x por dia é tortura.*
 
-`prefers-reduced-motion: reduce` → corta o `.wash` e o dreno vira crossfade de 200 ms. Estado nunca se perde.
+### ERRO — erro vira AUSÊNCIA, não banner vermelho
+
+Hook não instalado, arquivo ilegível, endpoint fora do ar: a linha cai pro estado **ausente**
+(pista tracejada, `—`) e diz **o que quebrou e como consertar**, inline, na própria linha.
+
+```
+Claude · 5 h    ┆ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ ┆    —
+                  hook statusLine não instalado   [instalar]
+```
+
+**Se havia um número anterior, ele NÃO some — mas é rebaixado:** `.tertiary`, e o rodapé passa a
+dizer `última leitura 14:35`.
+
+*Porquê: a pior combinação possível é erro + número velho parecendo fresco. O usuário toma decisão em cima de um número morto. O número velho tem valor (é melhor que nada), mas só se estiver **carimbado como velho**.*
+
+**Não existe banner vermelho.** *Porquê: erro num app de leitura passiva não é urgência — é ausência de informação. Desenhar ausência como alarme é a mesma mentira do semáforo.*
+
+### 85% CONSUMIDO — avisar sem dar pânico
+
+A tela **não fica vermelha**. Três coisas mudam:
+1. **a frase** — "Aperta o passo." (não é alerta, é conselho);
+2. **o número engorda** — `.semibold`, `.primary`;
+3. **a projeção rompe o trilho** — o único `emberHot` da tela.
+
+*Porquê: a barra sólida é o **fato medido** e não pode mudar de cor porque o **futuro** é feio. O que vaza pra fora do trilho é a projeção — e projeção é palpite, e palpite é o que pode ser desenhado hachurado e vermelho.*
+
+### RESET DA JANELA — o momento de alívio
+
+```
+0 ms     trava. o número congela.
++60 ms   a TINTA DRENA (spring response .90, damping 1.0). volume saindo.
++60 ms   o número desce junto — .contentTransition(.numericText(countsDown: true)),
+         mesma spring. se número e barra não andarem juntos, o olho não acredita.
++660 ms  a agulha do "agora" salta pro 0: a janela virou.
++780 ms  a headline troca. SÓ DEPOIS que a pista esvaziou.
+```
+
+**As outras pistas não se mexem.**
+*Porquê: as janelas são independentes e têm comprimentos diferentes. Se tudo animasse junto, o app mentiria sobre a mecânica dos limites e o usuário aprenderia errado.*
+
+**Nada pisca, nada quica, nada faz confete.**
+*Porquê: isso não é uma conquista — é o dia recomeçando. E `dampingFraction: 1.0` garante que a tinta não quica nem se eu quisesse.*
+
+**E se o reset promove outra janela a herói:** a reordenação anima com a spring de chrome
+(response .30). *Porquê: a linha subindo pro topo É a informação — "agora quem te aperta é outro". Esconder o movimento seria esconder o fato.*
+
+### O PALPITE VIRA MEDIDA (`mockups/07`)
+
+Sem o hook, o Claude é 100% inferido. Instalar entrega `used_percentage` medido, e a barra
+**endurece**: o reticulado condensa em tinta sólida, a faixa de incerteza **colapsa**, o til some.
+
+*Porquê: é a recompensa mais honesta que um app pode dar — você não ganhou um confete, ganhou **precisão**, e dá pra ver a precisão chegando. É o único onboarding que este app precisa ter.*
+
+O palpite era `~54%`; a verdade é `53%`. **A barra corrige 1 ponto, e o app mostra isso.**
+*Porquê: o palpite não era lixo, era um palpite. Esconder o acerto seria tão desonesto quanto esconder o erro.*
 
 ---
 
-## 7. O ícone da barra de menu
+## 8. O ícone da barra de menu
 
-22 px, **template image** (PNG preto + alfa, @1x 22×22 e @2x 44×44, `isTemplate = true`).
-O macOS pinta de preto na barra clara e de branco na escura: **não tenho controle de cor, só de forma.**
+**22 pt, template image. Monocromático. NÃO defina cor — o macOS tinge sozinho.**
 
 **Forma: proveta graduada.** Cilindro em pé, 3 traços de graduação na lateral, tinta subindo.
 
 Por que proveta e não pilha:
 1. a pilha do macOS é **deitada e com bico**; a nossa é **em pé e sem bico** — lado a lado na barra, nunca se confundem;
 2. proveta é objeto de **medição**, que é literalmente o que o app faz;
-3. tinta subindo = consumo, e **densidade de tinta é a tensão** — mais perto de estourar, mais preto o ícone. O alarme é gramatura, não cor. *Sem cor eu não teria como fazer semáforo nem se quisesse, e isso é uma vantagem.*
+3. tinta subindo = consumo, e **densidade de tinta é a tensão** — mais perto de estourar, mais preto o ícone.
+
+*E aqui o pivot me deu um presente: template image **não me deixa** usar cor. Então o semáforo é literalmente impossível de implementar. A restrição que eu impus por disciplina na Fase 1, o AppKit agora impõe por contrato.*
+
+### Como entregar
+
+É **dinâmico** (o nível muda), então não é asset estático. Desenhe em runtime:
+
+```swift
+func menuBarIcon(fill: Double, certainty: Certainty, state: IconState) -> NSImage {
+    let img = NSImage(size: NSSize(width: 22, height: 22), flipped: false) { _ in
+        let body = NSRect(x: 7.5, y: 3.5, width: 9, height: 15)   // .5 → traço cai NO pixel
+        let vessel = NSBezierPath(roundedRect: body, xRadius: 2.4, yRadius: 2.4)
+        vessel.lineWidth = 1.1
+
+        // graduação: 3 traços na lateral esquerda
+        for y in [8.0, 11.0, 14.0] {
+            let t = NSBezierPath()
+            t.move(to: NSPoint(x: 4, y: y)); t.line(to: NSPoint(x: 6, y: y))
+            t.lineWidth = 1
+            NSColor.black.withAlphaComponent(0.55).setStroke(); t.stroke()
+        }
+        // ... contorno + tinta recortada pelo vessel + topo (ver tabela de estados)
+        return true
+    }
+    img.isTemplate = true      // ← A LINHA QUE IMPORTA. sem isso, nada disso funciona.
+    return img
+}
+```
+
+**`isTemplate = true` é obrigatório.**
+*Porquê: é o que faz o macOS inverter na barra clara/escura E inverter de novo quando o usuário clica (menu aberto = fundo destacado). Um ícone colorido ignora o destaque de seleção e fica ilegível justamente no momento em que está sendo usado.*
+
+### Os estados
 
 | Estado | Desenho |
 |---|---|
-| Sem dado | contorno **tracejado**, zero tinta |
-| Medido | tinta sólida, **topo com corte reto** |
-| Derivado | tinta **reticulada**, **topo pontilhado** |
-| Quase lá (85%) | quase sólido — massa de tinta é o aviso |
-| Estourou | sólido + **régua acima da boca** (silhueta única no app) |
-| Reset | tinta **desce** (900 ms, `ease-drain` — mesma curva da janela) |
-| Pausado | contorno sólido, ícone inteiro a **42% de alfa** |
+| **Sem dado** | contorno **tracejado**, zero tinta |
+| **Medido** | tinta sólida, **topo com corte reto** |
+| **Inferido** | tinta **reticulada**, **topo pontilhado** |
+| **Quase lá (≥85%)** | quase sólido — massa de tinta é o aviso |
+| **Estourou (≥100%)** | sólido + **régua acima da boca** (silhueta única no app) |
+| **Reset** | tinta **desce**, mesma spring do dreno da janela |
+| **Pausado / sem leitura** | contorno íntegro, ícone inteiro a **42% de alfa** |
 
-**Regra de mistura:** o ícone mostra **um** provedor — o que fecha primeiro (menor folga).
-A textura do topo é a **desse** provedor: se o mais apertado for o Claude, o topo do ícone fica pontilhado.
-*Porquê: três provetas em 22 px não é informação, é sujeira.*
+*Porquê "pausado" ≠ "sem dado": no tracejado, a fonte sumiu. No alfa 42%, o vaso está íntegro e quem parou fui eu.*
 
-**Regras que não se quebram:**
+### Regra de mistura
 
-- Contorno em coordenada `.5` (7.5, 3.5); tinta e topo em coordenada **inteira**. *Porquê: em 22 px, meio pixel de erro vira cinza borrado e o ícone perde o corte reto — que é justamente o sinal de "medido".*
-- Tinta em **degraus de 5%** (20 níveis). *Porquê: 1% são 0,15 px — invisível, e ainda força repaint a cada evento do disco.*
-- Sem cor. Sem badge de contagem. Sem emoji. **Sem piscar** — *porquê: piscar é o semáforo de quem não tem cor disponível. Se estourou, a resposta é a régua acima da boca, parada, até você resolver.*
+O ícone mostra **UMA** janela: **a de menor folga** — a mesma que é herói na janela principal.
+A textura do topo é a **dela**.
+
+*Porquê: três provetas em 22 pt não é informação, é sujeira. E porque o ícone tem que concordar com a janela: se discordassem, o usuário aprenderia a não confiar em nenhum dos dois.*
+
+### Regras que não se quebram
+
+- Contorno em coordenada `.5`; tinta e topo em coordenada **inteira**. *Porquê: em 22 pt, meio pixel de erro vira cinza borrado e o ícone perde o corte reto — que é justamente o sinal de "medido".*
+- Tinta em **degraus de 5%** (20 níveis). *Porquê: 1% são 0,15 pt — invisível, e ainda força redesenho do `NSImage` a cada evento do disco.*
+- **Sem cor. Sem badge. Sem emoji. Sem piscar.** *Porquê: piscar é o semáforo de quem não tem cor disponível. Se estourou, a resposta é a régua acima da boca — parada, até você resolver.*
+
+> Alternativa que o Vitral pode preferir: exportar como **Custom SF Symbol** (SVG do template do
+> app SF Symbols) e usar `Image(_:)` com `.symbolRenderingMode(.template)`. Ganha alinhamento
+> óptico e variantes de peso de graça. Só vale se ele conseguir 20 níveis de nível como variantes —
+> se não, o `NSImage` em runtime é mais simples e igualmente nativo.
 
 ---
 
-## 8. Morte súbita (checklist de review)
+## 9. Morte súbita (checklist de review)
 
 - [ ] Card genérico: número grande + sparkline
 - [ ] Gradiente roxo/azul de SaaS
 - [ ] Semáforo verde/amarelo/vermelho como identidade
 - [ ] Gráfico de pizza / donut / anel de progresso
 - [ ] Emoji como ícone de sistema
-- [ ] **Um `0` onde a resposta honesta é `—`**
-- [ ] **Dado derivado desenhado com a mesma textura do medido**
+- [ ] **`0` onde a resposta honesta é `—`**
+- [ ] **Dado inferido com a mesma textura do medido**
+- [ ] **Soma de token apresentada como "quanto sobra"** — ninguém publica o teto em token
+- [ ] **`dampingFraction < 1.0` em barra de dado** — a barra exibe um valor falso no overshoot
+- [ ] **Fundo opaco dentro do popover** — mata a vibrancy, e o app deixa de parecer macOS
+- [ ] **`.shadow()` customizada** — assinatura de app web
+- [ ] **Número sem `.monospacedDigit()`**
 
-Os dois últimos são meus. Valem tanto quanto os outros cinco.
+Os seis últimos são meus. Valem tanto quanto os cinco do `norte-ux`.
 
 ---
 
-## 9. O que o Vitral precisa do core (contrato de dados)
+## 10. Contrato de dados (o que o Vitral precisa do core)
 
-Por provedor, por janela:
+```swift
+enum Certainty { case measured, inferred, absent }
+enum WindowKind { case fiveHour, sevenDay, monthlyUSD }
 
-```ts
-type Certeza = 'medido' | 'derivado' | 'ausente'
+struct Reading<T> {
+    let value: T?            // nil quando .absent. NUNCA 0.
+    let certainty: Certainty
+    let lo: Double?          // obrigatório quando .inferred
+    let hi: Double?          // obrigatório quando .inferred
+    let measuredAt: Date?    // obrigatório quando .measured
+}
 
-type Janela = {
-  provider: 'codex' | 'claude' | 'cursor'
-  windowMinutes: number          // 300 | 10080
-  startedAt:  { v: number, c: Certeza }   // claude: MEDIDO (1º timestamp do jsonl)
-  resetsAt:   { v: number, c: Certeza }   // claude: MEDIDO (startedAt + 5 h)
-  usedPct:    { v: number, c: Certeza, lo?: number, hi?: number }  // claude: DERIVADO + faixa
-  burnRatePct: number | null     // pts de % por hora, últimos 20 min → a projeção
+struct LimitWindow: Identifiable {
+    let id: String              // "claude.5h", "codex.7d", "cursor.month"
+    let provider: Provider
+    let kind: WindowKind
+    let startedAt: Reading<Date>
+    let resetsAt: Reading<Date>
+    let used: Reading<Double>   // 0–100 em pct; US$ em monthlyUSD
+    let ceiling: Reading<Double>?   // US$ 20 no Cursor Pro; nil em pct
+    let burnRate: Double?           // pts (ou US$) por hora, últimos 20 min → a projeção
+
+    var slack: Double? { ... }  // ← a chave da ORDENAÇÃO. nil quando .absent.
 }
 ```
 
-`lo`/`hi` são **obrigatórios** quando `c === 'derivado'`.
-*Porquê: sem faixa, o reticulado é só um borrão bonito. Com faixa, é estatística honesta — e é a faixa que autoriza o app a estimar sem mentir.*
+Regras que o core **tem** que respeitar, ou o design mente:
 
-`usedPct.v` é `null` quando `c === 'ausente'`. **Nunca `0`.**
+1. **`slack == nil` nunca vira herói.** *Porquê: não dá pra provar que uma janela ausente aperta. Ela vira ressalva do veredito, nunca o veredito.*
+2. `lo`/`hi` **obrigatórios** quando `.inferred`. *Porquê: sem faixa, o reticulado é só um borrão bonito. Com faixa, é estatística honesta.*
+3. `measuredAt` **obrigatório** quando `.measured`. *Porquê: é o que desenha a costura da barra composta. Sem carimbo de hora, não dá pra saber onde o fato acaba.*
+4. `used.value == nil` quando `.absent`. **Nunca `0`.**
+5. Soma de token **nunca** vira `used`. Vira **custo**, e só. *Porquê: nenhum dos três publica teto em token (`docs/LIMITES.md`).*
 
 ---
 
-## 10. Pendências que travam pixel
+## 11. Pendências que travam pixel
 
-1. **O teto do Claude.** A faixa `lo`–`hi` depende do que a Sonda/Sextante descobrirem. Se o teto vier a ser **medido** (endpoint autenticado), o Claude vira sólido e o reticulado some da tela dele — **o design já suporta isso sem redesenho**, porque a certeza é um campo, não um layout.
-2. **Cursor.** Se a API só servir plano de time: manter `ausente` pra sempre, com o link "conectar" trocado por uma frase honesta. Nunca inventar número.
-3. **Janela semanal (7 d).** O Codex entrega (`rate_limits.secondary`). Ainda não desenhei — provável segunda pista, mais fina, sob a de 5 h. Fase 2.
+1. **Cursor.** `docs/CURSOR.md`: o Sextante **não confirmou o endpoint ao vivo** — o shape é *PROVÁVEL*. Enquanto não confirmar: **`.absent` permanente**, com a ação "conectar". **Nunca inventar número.**
+2. **Unidade do Cursor é US$, não %.** A pista normalizada aguenta (gasto ÷ crédito = fração). Mas o **rótulo tem que dizer `US$ 6,40 / 20`**, nunca `32%` sozinho. *Porquê: 32% de um crédito em dólar e 32% de uma cota opaca não são a mesma coisa, e fingir que são é exatamente a mentira que este spec inteiro existe pra matar.*
+3. **Contraste do ember em light mode.** Gerei do OKLCH sem medir contra o material claro real. Vitral: mede. Se não passar, o hex certo é o que passa.

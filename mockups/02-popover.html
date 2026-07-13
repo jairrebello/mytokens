@@ -124,55 +124,74 @@
   <div class="pv">
     <h2>Dá pra continuar.</h2>
     <p class="sub">
-      Primeiro teto a fechar: <b>Codex</b>, às <b>16:12</b>.
-      No ritmo atual, sobra <b>1 h 43</b>.
+      Teto que aperta: <b>Claude, 5 h</b>. Fecha a janela em <b>86%</b>.
+      Zera às <b>16:50</b>.
     </p>
   </div>
 
   <div class="plist">
 
-    <!-- MEDIDO -->
+    <!-- CLAUDE 5h — MEDIDO (hook statusLine), com trecho inferido do disco
+         desde a última leitura. Barra composta, em 8 px. Se o reticulado
+         não sobrevivesse a 8 px, o sistema inteiro cairia — sobrevive. -->
     <div class="prow">
-      <span class="n">Codex</span>
-      <span class="val num" data-heat="2">58%</span>
+      <span class="n">Claude · 5 h</span>
+      <span class="val num" data-heat="2">50%</span>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
-          <div class="ink live" style="width:58%"></div>
-          <div class="now" style="left:54%"></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink split live" style="width:50%">
+            <div class="m" style="width:94%"></div>
+            <div class="d" style="width:6%"></div>
+            <div class="seam" style="left:94%"></div>
+          </div>
+          <div class="now" style="left:59%"></div>
         </div>
       </div>
-      <div class="foot"><span>medido</span><span>zera 16:12</span></div>
+      <div class="foot"><span>medido 14:35 · +3 do disco</span><span>zera 16:50</span></div>
     </div>
 
-    <!-- DERIVADO -->
+    <!-- CLAUDE 7d — MEDIDO, folgado -->
     <div class="prow">
-      <span class="n">Claude Code</span>
-      <span class="val num" data-heat="2"><span class="approx">~</span>61%</span>
+      <span class="n">Claude · 7 d</span>
+      <span class="val num" data-heat="1">38%</span>
       <div class="lane">
         <div class="track">
-          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
-            <i style="left:60%"></i><i style="left:80%"></i></div>
-          <div class="band" style="left:52%; width:18%"></div>
-          <div class="ink derived" style="width:61%"></div>
-          <div class="now" style="left:42%"></div>
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink" style="width:38%"></div>
+          <div class="now" style="left:46%"></div>
         </div>
       </div>
-      <!-- o rodapé da linha diz a verdade em texto, além do desenho.
-           dois canais dizendo a mesma coisa = zero chance de mal-entendido -->
-      <div class="foot"><span>estimado · 52–70%</span><span>zera 17:40</span></div>
+      <div class="foot"><span>medido</span><span>zera sex 09:12</span></div>
     </div>
 
-    <!-- AUSENTE -->
+    <!-- CODEX — MEDIDO, do disco. Só a semanal: a janela de 5 h foi
+         removida em 2026-07-12. -->
     <div class="prow">
-      <span class="n">Cursor</span>
+      <span class="n">Codex · 7 d</span>
+      <span class="val num" data-heat="1">31%</span>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i>
+            <i style="left:75%"></i></div>
+          <div class="ink" style="width:31%"></div>
+          <div class="now" style="left:46%"></div>
+        </div>
+      </div>
+      <div class="foot"><span>medido</span><span>zera seg 09:20</span></div>
+    </div>
+
+    <!-- AUSENTE — e nem a unidade é %: é US$ contra o crédito do plano. -->
+    <div class="prow">
+      <span class="n">Cursor · mês</span>
       <span class="val num" data-heat="0">—</span>
       <div class="lane">
-        <div class="track empty"><div class="now" style="left:54%"></div></div>
+        <div class="track empty"><div class="now" style="left:41%"></div></div>
       </div>
       <div class="foot">
-        <span>sem dado local</span>
+        <span>sem dado local · US$ 20 de crédito</span>
         <a class="connect" href="#">conectar</a>
       </div>
     </div>
@@ -182,7 +201,7 @@
   <div class="pfoot">
     <div class="leg">
       <span class="item"><i class="sw m"></i>Medido</span>
-      <span class="item"><i class="sw d"></i>Derivado</span>
+      <span class="item"><i class="sw d"></i>Inferido</span>
       <span class="item"><i class="sw a"></i>Sem dado</span>
     </div>
     <a href="#">Abrir ⌘↩</a>
@@ -191,10 +210,12 @@
 </div>
 
 <p class="note">
-  <b>340 px.</b> Mesma gramática da janela, densidade maior: no popover
-  a agulha do "agora" some e a pista cai de 14 px pra 8 px. O que
-  <b>não</b> muda é o reticulado do derivado — se ele sumisse aqui, o app
-  mentiria justamente onde é mais olhado.
+  <b>340 px, quatro janelas de comprimentos diferentes</b> — 5 h, 7 d, 7 d e um mês
+  em dólar. O que costura tudo não é a duração: é o <b>eixo normalizado</b>
+  (0→100% <i>daquela</i> janela) e o vão entre a tinta e o cursor.
+  <br><br>
+  A pista cai de 14 px pra 8 px e a agulha some. O que <b>não</b> cai é o
+  reticulado — se ele sumisse aqui, o app mentiria justamente onde é mais olhado.
 </p>
 
 </body>
