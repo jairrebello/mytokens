@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import MyTokensCore
@@ -108,6 +109,75 @@ final class AppModel {
         dashboard = Dashboard(snapshot)
         lastRefresh = snapshot.generatedAt
         lastDuration = snapshot.duration
+    }
+
+    // MARK: - "conectar"
+    //
+    // O botão aparece em toda pista sem tinta. Ele NÃO pode ser um enfeite: se anuncia
+    // que dá pra conectar, tem que entregar alguma coisa. E hoje ele não pode entregar o
+    // número — o Jair escolheu a opção D do docs/STATUSLINE.md, e o app não escreve um
+    // byte em ~/.claude sem autorização por escrito.
+    //
+    // Então ele entrega o que é POSSÍVEL entregar sem escrever nada: a VERDADE sobre por
+    // que aquele número não existe. Cada provedor não sabe pelo seu próprio motivo, e
+    // esconder isso atrás de um "não disponível" genérico seria trocar uma mentira por
+    // uma preguiça.
+    func connect(_ provider: Provider) {
+        let alerta = NSAlert()
+        alerta.alertStyle = .informational
+        alerta.messageText = motivo(provider).titulo
+        alerta.informativeText = motivo(provider).corpo
+        alerta.addButton(withTitle: "Entendi")
+
+        // App `.accessory` não é ativado por ninguém — sem isto o painel nasce atrás.
+        NSApp.activate(ignoringOtherApps: true)
+        alerta.runModal()
+    }
+
+    private func motivo(_ provider: Provider) -> (titulo: String, corpo: String) {
+        switch provider {
+        case .claudeCode:
+            (
+                "O Claude não publica quanto sobra.",
+                """
+                O quanto você JÁ GASTOU eu leio do disco, e está aqui na tela. \
+                O quanto RESTA não está em arquivo nenhum: o Claude Code recebe esse número \
+                nos headers HTTP e guarda só em memória.
+
+                O único caminho até ele é o hook `statusLine`, que exige escrever em \
+                ~/.claude/settings.json — onde você já tem um hook do GSD que eu não vou \
+                sobrescrever sem você mandar.
+
+                Enquanto isso não for decidido, o app prefere dizer "não sei" a inventar \
+                uma porcentagem.
+                """
+            )
+        case .codex:
+            (
+                "O Codex está sem janela válida.",
+                """
+                Este eu leio de graça: o Codex grava os limites no próprio rollout, e nada \
+                precisa ser conectado.
+
+                Só que a janela de 5 h foi REMOVIDA pela OpenAI em 12/07/2026, e a semanal \
+                que está no disco já venceu. Mostrar a porcentagem de um bloco morto seria \
+                um número velho fingindo ser o de agora.
+
+                Assim que você usar o Codex de novo, o limite aparece aqui sozinho.
+                """
+            )
+        case .cursor:
+            (
+                "O Cursor ainda não foi decifrado.",
+                """
+                O Cursor guarda o uso num banco SQLite \
+                (~/.cursor/ai-tracking/ai-code-tracking.db) cujo schema ninguém provou ainda.
+
+                Eu poderia chutar. Prefiro não: um número errado aqui é pior que nenhum, \
+                porque você acreditaria nele.
+                """
+            )
+        }
     }
 
     func togglePause() {

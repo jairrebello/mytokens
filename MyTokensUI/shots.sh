@@ -31,13 +31,14 @@ shoot() {
 
   # `real` lê o disco de verdade: o primeiro scan varre ~1,4 GB e pode levar um minuto.
   # Capturar no relógio fotografaria o estado vazio e chamaria de real — espera o sinal.
-  if [ "$shot" = "real" ]; then
+  case "$shot" in real|realWindow)
     for _ in $(seq 1 300); do
       grep -qE '^REAL_(READY|FAILED)' "$log" 2>/dev/null && break
       sleep 0.5
     done
     grep -m1 -E '^REAL_(READY|FAILED)' "$log" 2>/dev/null
-  fi
+    ;;
+  esac
 
   if [ -z "$wid" ]; then
     echo "✗ $shot/$mode — janela não abriu"; cat "$log"; kill "$pid" 2>/dev/null; return 1
