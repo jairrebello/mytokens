@@ -24,7 +24,7 @@ public enum CollectorRegistry {
         [
             ClaudeCodeCollector(pricing: pricing),
             CodexCollector(pricing: pricing),
-            EmptyCollector(provider: .cursor),
+            CursorCollector(),
         ]
     }
 

@@ -1,11 +1,44 @@
-# CURSOR — de onde (não) sai o uso
+# CURSOR — de onde sai o uso
 
-Risco nº 1 do projeto. Investigado em **2026-07-13**. Resumo de uma linha:
+Risco nº 1 do projeto. Investigado e **RESOLVIDO** em **2026-07-13**. Resumo de uma linha:
 
-> **O Cursor não guarda uso no disco. O `.db` de 180MB não tem token nem custo — é atribuição de
-> autoria de linha.** Uso individual só existe atrás de endpoint autenticado do `cursor.com`. A
-> Admin API oficial é **só time/enterprise**. Sem esses acessos, o card honesto é
-> "Cursor: conecte sua conta".
+> **O Cursor não guarda uso no disco.** Mas o `cursor.com/api/usage-summary`, autenticado com a
+> sessão que o próprio Cursor mantém em `state.vscdb`, devolve o número — CONFIRMADO AO VIVO. É o
+> primeiro (e único) collector de REDE do app.
+
+> ## ✅ IMPLEMENTADO — `MyTokensCore/CursorCollector.swift`
+>
+> Autorizado pelo Jair ("reusar a sessão local"). O endpoint que a FRENTE B abaixo listava como
+> "não confirmado" foi **provado ao vivo** — e é mais simples que o supunha: não são os
+> `dashboard/get-monthly-invoice`, é **um GET** em `cursor.com/api/usage-summary`.
+>
+> **Response real (13/07):**
+> ```jsonc
+> { "billingCycleEnd": "2026-07-30T...",     // → resetsAt
+>   "membershipType": "pro",
+>   "individualUsage": { "plan": {
+>     "breakdown": { "included": 2000 },      // → capUSD = US$ 20 (centavos)
+>     "totalPercentUsed": 16.44 } } }         // → usedPercent. É o que o Cursor MOSTRA.
+> ```
+> Vira **uma** `LimitWindow`: mês corrente, `source: .measured`, `unit: .usd`, `capUSD: 20`.
+> Na tela: **"Cursor · Mês — US$ 3,29 / 20"**, tinta sólida.
+>
+> **Segurança (o que o código garante, não promete):** o accessToken sai do `state.vscdb`
+> READONLY+immutable, fica só em memória, e vai num header `Cookie` para `cursor.com` e mais lugar
+> nenhum. Zero `print`/log/telemetria no CursorCollector (verificado por grep no CI mental). Falha
+> em qualquer passo → "sem dado local", honesto.
+>
+> **Limitação conhecida:** o Cursor muda por REDE, não por disco — o FSEvents não acorda por causa
+> dele. Ele atualiza (a) no boot, (b) sempre que o refresh dispara por Claude/Codex, (c) quando o
+> usuário abre o popover (`refreshOnOpen`). TTL de 5 min segura a rede. Se o usuário passa horas SÓ
+> no Cursor com a tela fechada, o número pode ficar até 5 min velho na próxima abertura — aceitável.
+>
+> **Fragilidade:** `usage-summary` é endpoint interno, sem contrato. Se o Cursor mudar, o teste
+> `ParserTests → "Cursor: totalPercentUsed..."` grita, e a pista degrada pra "sem dado" (nunca
+> mente). O schema fixado no teste é o retrato de 13/07.
+
+O texto abaixo é a investigação ORIGINAL, de antes de o endpoint ser confirmado. Fica como
+registro do caminho — a FRENTE B previa `dashboard/*`; o que funcionou foi `usage-summary`.
 
 ---
 

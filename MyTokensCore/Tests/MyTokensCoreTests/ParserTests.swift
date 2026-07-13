@@ -261,6 +261,59 @@ struct ParserTests {
         #expect(r.read().isEmpty)
     }
 
+    // MARK: - Cursor (rede)
+
+    /// O schema REAL, capturado ao vivo em 13/07 do cursor.com/api/usage-summary. Fixado
+    /// aqui pra travar a leitura sem depender da rede — o endpoint é interno do Cursor e
+    /// muda sem avisar; se mudar, é este teste que grita.
+    @Test("Cursor: totalPercentUsed vira a janela do mês, em US$")
+    func cursorUsageSummary() throws {
+        let json = """
+        {"billingCycleStart":"2026-06-30T12:59:20.000Z",
+         "billingCycleEnd":"2026-07-30T12:59:20.000Z",
+         "membershipType":"pro","isUnlimited":false,
+         "individualUsage":{"plan":{"used":2000,"limit":2000,"remaining":0,
+           "breakdown":{"included":2000,"bonus":1207,"total":3207},
+           "totalPercentUsed":16.446153846153848},
+           "onDemand":{"enabled":false}}}
+        """.data(using: .utf8)!
+
+        let status = try CursorCollector.parse(json, now: Date())
+        #expect(status.connected)
+        let w = try #require(status.windows.first)
+        #expect(w.id == "cursor-month")
+        #expect(w.source == .measured)          // o Cursor DEU o número. Nunca derivado.
+        #expect(w.unit == .usd)                 // dólar de compute, não % de cota opaca
+        #expect(w.capUSD == Decimal(20))        // included 2000 centavos = US$ 20
+        #expect(Int(w.usedPercent.rounded()) == 16)
+    }
+
+    /// Sessão válida mas SEM plano individual (conta de time): conectado, mas sem janela
+    /// que a gente saiba desenhar. Não inventa uma.
+    @Test("Cursor: resposta sem plano individual -> conectado, sem janela")
+    func cursorNoIndividualPlan() throws {
+        let json = #"{"membershipType":"pro","teamUsage":{},"individualUsage":{}}"#
+            .data(using: .utf8)!
+        let status = try CursorCollector.parse(json, now: Date())
+        #expect(status.connected)
+        #expect(status.windows.isEmpty)
+    }
+
+    /// O `sub` sai do payload do JWT sem tocar em assinatura nem no header. É o que entra
+    /// no cookie de sessão — e é a única parte do token que este código manipula por nome.
+    @Test("Cursor: extrai o sub do JWT")
+    func cursorJWTSubject() {
+        // header.payload.signature — payload = {"sub":"google-oauth2|123","exp":9}
+        let payload = Data(#"{"sub":"google-oauth2|123","exp":9}"#.utf8)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let jwt = "aaa.\(payload).bbb"
+        #expect(CursorCollector.subject(ofJWT: jwt) == "google-oauth2|123")
+        #expect(CursorCollector.subject(ofJWT: "não é jwt") == nil)
+    }
+
     /// JANELA VENCIDA SOME. Não vira 0%, não vira o último valor: SOME.
     ///
     /// Esta regra existia nos dois collectors e não tinha UM teste — o tipo de coisa que

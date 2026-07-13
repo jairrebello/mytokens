@@ -72,6 +72,9 @@ private struct PopoverScene: View {
                 .opacity(0)
                 .accessibilityHidden(true)
         }
+        // Abriu o popover → força uma coleta. É o que atualiza o Cursor, que muda por
+        // rede e não por disco (o FSEvents nunca acorda por causa dele).
+        .task { model.refreshOnOpen() }
     }
 
     private func abrir() {

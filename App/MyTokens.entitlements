@@ -14,10 +14,19 @@
 	  A App Store EXIGE sandbox; notarize NÃO exige. Se um dia a App Store virar requisito,
 	  isto aqui vira o bloqueio principal — e vai custar caro. Está anotado.
 
-	  Nenhuma entitlement de rede: o app não fala com servidor nenhum (regra 2). Se um dia
-	  o fallback do /api/oauth/usage entrar, aí sim precisa de com.apple.security.network.client.
+	  REDE: o app fala com UM servidor — cursor.com — e só ele. O Cursor não grava uso no
+	  disco (docs/CURSOR.md), então "quanto resta" dele só existe atrás do endpoint
+	  autenticado do próprio provedor. A regra 2 deixou de ser "zero rede" e passou a ser
+	  "só o domínio oficial do provedor": o `aud` do accessToken do Cursor é `cursor.com`,
+	  então o token foi feito pra falar com esse host, e a credencial nunca vai a outro
+	  lugar. Autorizado pelo Jair em 2026-07-13. Ver App/AppModel.swift e CursorCollector.
+
+	  Sem sandbox, `network.client` não é tecnicamente exigido — mas fica declarado, porque
+	  é a verdade sobre o que o app faz, e um dia (App Store) vai ser obrigatório.
 	-->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

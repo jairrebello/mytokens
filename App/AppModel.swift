@@ -93,6 +93,16 @@ final class AppModel {
             || path.hasSuffix("/MyTokens/statusline.json")
     }
 
+    /// O usuário abriu o popover ou a janela. Força uma coleta.
+    ///
+    /// É o que mantém o Cursor honesto: ele muda por REDE, não por disco, então o FSEvents
+    /// nunca acorda por causa dele. Se o usuário só usa o Cursor (Claude e Codex parados),
+    /// nada dispararia o refresh — e o número ficaria velho. Abrir a tela é o gatilho.
+    /// O TTL do CursorCollector (5 min) segura a rede: abrir e fechar dez vezes bate uma vez.
+    func refreshOnOpen() {
+        scheduleRefresh(delay: .zero)
+    }
+
     /// Debounce: uma rajada de writes vira UMA coleta.
     /// O FSEvents já coalesce no kernel (latency 1s); isto é o segundo cinto, pro caso de
     /// os dois diretórios acordarem juntos.
@@ -181,16 +191,18 @@ final class AppModel {
             )
         case .cursor:
             (
-                "O Cursor não guarda isso no seu computador.",
+                "Não encontrei sua sessão do Cursor.",
                 """
-                Fui atrás. O banco que ele mantém \
-                (~/.cursor/ai-tracking/ai-code-tracking.db) tem 33 mil registros e NENHUM \
-                token: ele rastreia AUTORIA DE CÓDIGO — quantas linhas a IA escreveu contra \
-                quantas você escreveu. Não é cota, é estatística de digitação.
+                O Cursor não guarda uso no disco — o número vive no servidor dele. Para \
+                lê-lo, o app reusa a sessão que o próprio Cursor já mantém na sua máquina \
+                (o accessToken em state.vscdb) e pergunta ao cursor.com quanto você já usou.
 
-                Gasto e restante do Cursor só existem no servidor dele. Sem rede e sem \
-                credencial, não há o que ler — e eu prefiro dizer isso a inventar um número \
-                que você acreditaria.
+                Se esta pista está vazia, é porque essa sessão não foi encontrada, expirou, \
+                ou o computador está sem rede. Abra o Cursor e faça login uma vez — no \
+                próximo refresh o número aparece.
+
+                A sua credencial nunca é registrada, salva nem enviada a lugar nenhum além \
+                do próprio cursor.com.
                 """
             )
         }
