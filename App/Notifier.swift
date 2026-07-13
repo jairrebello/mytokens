@@ -136,19 +136,25 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             // O til do reticulado sobrevive à travessia pra cá: se o número é estimado na
             // tela, ele é estimado na notificação. A honestidade não pode parar na janela.
             let mark = lane.certainty.isApproximate ? "~" : ""
-            content.title = "\(lane.title) em \(mark)\(Int(used.rounded()))%"
-
-            var corpo = "Aperta o passo — dá pra fechar o que está aberto, não pra abrir frente nova."
-            if let falta = Self.remaining(until: lane.resetsAt, now: now) {
-                corpo += " Zera em \(falta)."
-            }
-            content.body = corpo
+            content.title = "\(lane.noticeTitle) em \(mark)\(Int(used.rounded()))%"
+            content.body = Self.crossedBody(lane, now: now)
             content.sound = .default   // é o aviso ACIONÁVEL: o único que merece um som.
 
         case .reset(let lane, let peak, _):
             id = "reset-\(lane.id)-\(Int(peak.rounded()))"
-            content.title = "\(lane.title) zerou"
-            content.body = "Cota inteira de novo. Você tinha chegado a \(Int(peak.rounded()))%."
+            let pct = Int(peak.rounded())
+            switch lane.owner {
+            case .budget:
+                // "Zerou" e "cota inteira de novo" seriam a frase de um limite que te barra.
+                // Um mês novo não te devolve cota nenhuma — ele te devolve a régua. Dizer o
+                // contrário ensinaria o usuário a ler o orçamento como se fosse um teto do
+                // provedor, que é a única coisa que ele não é.
+                content.title = "Mês novo. O orçamento recomeça."
+                content.body = "Você fechou o mês anterior em \(pct)% do teto que tinha posto."
+            case .provider:
+                content.title = "\(lane.noticeTitle) zerou"
+                content.body = "Cota inteira de novo. Você tinha chegado a \(pct)%."
+            }
             // Sem som e `.passive`: alívio não interrompe ninguém. Isto não é uma conquista,
             // é o dia recomeçando — e o dia recomeçando não toca sino.
             content.sound = nil
@@ -158,6 +164,42 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // `trigger: nil` = agora. Agendar seria inventar um relógio, e o app não tem um.
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         try? await center.add(request)
+    }
+
+    /// O CONSELHO MUDA COM A NATUREZA DO TETO — e é a única coisa que o orçamento não herdou
+    /// de graça do aviso de 85%.
+    ///
+    /// Um limite de provedor te PARA: bateu, o prompt não passa. O conselho certo é sobre o
+    /// TRABALHO — "fecha o que está aberto, não abre frente nova" — porque o que está em jogo
+    /// é o tempo que te resta de máquina.
+    ///
+    /// Um orçamento não te para. Ele te COBRA. Se o app dissesse "não abra frente nova" sobre
+    /// dinheiro, estaria dando um conselho sobre trabalho onde a decisão é sobre gasto — e
+    /// pior, sugerindo uma barreira que não existe: nada, nem esta notificação, vai impedir
+    /// ninguém de continuar. O que ele pode fazer é dizer o número, dizer quanto falta do mês,
+    /// e devolver a decisão pra quem paga a conta. É dele o bolso e é dele o teto.
+    private static func crossedBody(_ lane: Lane, now: Date) -> String {
+        switch lane.owner {
+        case .budget:
+            var s = "Já foram \(lane.displayValue)"
+            if let cap = lane.capUSD {
+                s += " dos US$ \(Lane.cap(cap)) que você pôs pra este mês"
+            }
+            s += "."
+            if let falta = Self.remaining(until: lane.resetsAt, now: now) {
+                s += " O mês vira em \(falta)."
+            }
+            // A ressalva viaja junto. Um alarme sobre dinheiro que omite que o número é
+            // estimado é justamente o alarme que não podia omitir isso.
+            return s + " (Estimado do disco, a preço de tabela — não é a sua fatura.)"
+
+        case .provider:
+            var s = "Aperta o passo — dá pra fechar o que está aberto, não pra abrir frente nova."
+            if let falta = Self.remaining(until: lane.resetsAt, now: now) {
+                s += " Zera em \(falta)."
+            }
+            return s
+        }
     }
 
     /// "1 h 20 min" · "45 min" · "3 dias". O tempo é a unidade do humano (UI-SPEC §3):
@@ -224,6 +266,26 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 /// O valor guardado é a TINTA no momento do aviso. Ela paga por duas coisas: prova que a
 /// janela seguinte "caiu" (reset é medida, não palpite) e dá o pico que o aviso de alívio
 /// devolve pro usuário.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// E A CHAVE FUNCIONA PRO ORÇAMENTO, sem uma linha nova aqui. Vale escrever por quê, porque
+/// era o lugar óbvio pra quebrar:
+///
+///   • a chave é `laneID@resetsAt`, e "provedor" nunca entrou nela — o `laneID` já era só um
+///     id opaco de pista. O orçamento tem um (`Lane.budgetID`, fixo, e sem `@` dentro: um
+///     `@` no id partiria o `parse` ao meio e o dedup morreria em silêncio).
+///
+///   • o "reset" dele é a VIRADA DO MÊS, e ela se comporta exatamente como as outras: o
+///     `resetsAt` é o dia 1º do mês que vem, é estável dentro do mês (logo a chave é estável,
+///     logo ele avisa UMA vez) e muda quando o mês vira (logo a chave morre junto com o mês,
+///     logo agosto pode avisar de novo). É a mesma mecânica de uma janela de 5 h, com outro
+///     comprimento.
+///
+///   • o `prune` também se comporta: no dia da virada a chave velha ainda está dentro das 24 h
+///     e sobrevive pra pagar o aviso de alívio; depois disso ela é lixo, e vai pro lixo.
+///
+/// A única coisa que o orçamento NÃO herdou foi o texto — ver `crossedBody`.
+/// ─────────────────────────────────────────────────────────────────────────────
 private struct Ledger {
     static let key = "mytokens.notify.warned"
 

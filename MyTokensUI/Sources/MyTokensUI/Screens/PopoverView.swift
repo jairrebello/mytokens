@@ -149,7 +149,7 @@ public struct PopoverView: View {
                         .tracking(0.03 * T.micro)
                         .foregroundStyle(p.ink3)
                         .accessibilityHidden(true)   // idem: "zera às 16:50" já foi dito
-                } else {
+                } else if let provider = lane.provider {
                     // Sem dado → o convite. Não é modal, não é badge vermelho,
                     // não é tour: fica no lugar onde a dor está, e some sozinho
                     // quando resolvido.
@@ -157,14 +157,20 @@ public struct PopoverView: View {
                     // É a única AÇÃO da linha, então é a única coisa daqui que o
                     // VoiceOver ainda para. E ela diz o provedor: "conectar" sozinho,
                     // fora da linha em que está, não é instrução — é adivinhação.
-                    Button("conectar") { onConnect(lane.provider) }
+                    //
+                    // O `let provider` não é cerimônia de Optional: é o compilador
+                    // impedindo que a pista do orçamento ganhe um "conectar". Não há o que
+                    // conectar num teto que o próprio usuário escreveu — e ela nunca chega
+                    // aqui, porque orçamento sem tinta não é uma pista vazia, é uma pista
+                    // que não existe.
+                    Button("conectar") { onConnect(provider) }
                         .buttonStyle(.plain)
                         .font(.ui(T.xs))
                         .foregroundStyle(p.ember)
                         .overlay(alignment: .bottom) {
                             Rectangle().fill(p.ember.opacity(0.35)).frame(height: 1).offset(y: 2)
                         }
-                        .accessibilityLabel("Conectar o \(lane.provider.displayName)")
+                        .accessibilityLabel("Conectar o \(provider.displayName)")
                 }
             }
             .padding(.top, 6)
@@ -178,10 +184,14 @@ public struct PopoverView: View {
     /// O rodapé de cada pista carrega a procedência em PALAVRA — o segundo
     /// canal. A textura já disse; isto confirma pra quem parou pra ler.
     private func footnote(_ lane: Lane) -> String {
-        var s = lane.certainty.provenanceLabel()
+        // O orçamento diz "estimado do disco", não só "estimado" (ver `Lane.provenanceNote`):
+        // em 340 px não cabe a ressalva inteira, mas cabe o DE ONDE — e o de onde é o que
+        // explica o número poder andar pra trás. A ressalva inteira mora na janela grande e
+        // no painel onde ele foi definido.
+        var s = lane.provenanceNote
         if case .absent = lane.certainty, lane.unit == .usd,
            let cap = lane.capUSD {
-            s += " · US$ \(Int((cap as NSDecimalNumber).doubleValue)) de crédito"
+            s += " · US$ \(Lane.cap(cap)) de crédito"
         }
         if let range = lane.displayRange {
             s += " · \(range)"
@@ -263,6 +273,24 @@ struct AppMenu: View {
                     }
                 }
             }
+
+            Divider()
+            // O ORÇAMENTO. Este item é o ÚNICO lugar onde ele existe quando não existe — e é
+            // por isso que ele não é um submenu com valores prontos: um teto é um número que
+            // só o dono da fatura sabe, e oferecer "US$ 20 / US$ 50 / US$ 100" seria o app
+            // chutando o bolso de alguém.
+            //
+            // O rótulo CARREGA o estado, como o do hook logo abaixo: com um teto definido, ele
+            // diz qual é, e o usuário confere sem clicar. Sem teto, ele é um convite — e o
+            // convite é discreto de propósito. Ele NÃO tem uma pista fantasma na tela pra
+            // chamar atenção: uma pista de orçamento que aparece antes de existir um orçamento
+            // seria o app afirmando um teto que ninguém pôs, que é a mesma família de mentira
+            // do "0%" que não é zero.
+            Button(
+                controls.budgetUSD.map { "Orçamento: US$ \(Lane.cap($0)) por mês…" }
+                    ?? "Definir um orçamento mensal…",
+                action: controls.openBudgetPanel
+            )
 
             Divider()
             // O hook do statusLine. O rótulo CARREGA o estado, porque este é o único item do

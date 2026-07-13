@@ -32,6 +32,9 @@ final class AppModel {
     private(set) var menuBarStyle: MenuBarStyle = MenuBarStyleStore.current
     /// Avisar quando uma janela cruza 85%. Persistido; nasce LIGADO.
     private(set) var notifyAt85: Bool = NotifyStore.current
+    /// O teto de gasto mensal. Persistido, e nasce `nil`: NINGUÉM tem orçamento até dizer que
+    /// tem. Um teto padrão seria o app inventando o bolso do usuário.
+    private(set) var budgetUSD: Decimal? = BudgetStore.current
     /// O macOS barrou os avisos. O menu precisa saber pra não mostrar um ✓ que não avisa nada.
     private(set) var notificationsBlocked = false
     /// Quantas vezes o DISCO nos acordou. É a prova, em QA, de que isto é evento e não polling.
@@ -148,7 +151,7 @@ final class AppModel {
         let anterior = dashboard
 
         statuses = snapshot.statuses
-        dashboard = Dashboard(snapshot, history: history)
+        dashboard = Dashboard(snapshot, history: history, budgetUSD: budgetUSD)
         lastRefresh = snapshot.generatedAt
         lastDuration = snapshot.duration
 
@@ -453,6 +456,102 @@ final class AppModel {
         if !isPaused { scheduleRefresh(delay: .zero) }
     }
 
+    // MARK: - O orçamento
+    //
+    // O único número da tela que não vem do disco: vem do usuário. E como ele é a régua com
+    // que o app vai medir o dinheiro dele, o painel que o coleta tem UMA obrigação antes de
+    // ter um campo de texto — dizer contra o quê ele vai ser medido.
+    //
+    // O app não pode prometer uma fatura. Ele lê tokens do disco e multiplica por um preço de
+    // TABELA. É uma boa estimativa e não é a sua conta, e a diferença entre as duas coisas é
+    // o produto inteiro. Um painel que só perguntasse "quanto você quer gastar?" e sumisse
+    // estaria deixando o usuário assumir a coisa errada em silêncio.
+
+    private func abrirPainelDoOrcamento() {
+        let atual = budgetUSD
+
+        let alerta = NSAlert()
+        alerta.alertStyle = .informational
+        alerta.messageText = atual == nil ? "Definir um orçamento mensal" : "Orçamento mensal"
+        alerta.informativeText = """
+            Um teto em US$ pro MÊS DO CALENDÁRIO — o mesmo mês da sua fatura, virando no dia \
+            1º. A pista mede quanto do teto já foi; o cursor mede quanto do mês já passou. \
+            Tinta atrás do cursor significa que você fecha o mês dentro do orçamento.
+
+            O QUE ESTE NÚMERO NÃO É: a sua fatura. Ele é o token que ficou gravado no disco \
+            multiplicado pelo preço PÚBLICO de tabela da API (pricing.json). Ninguém aqui viu \
+            uma cobrança — por isso a tinta dessa pista sai reticulada, como todo custo neste app.
+
+            E ele é um PISO, não um teto: o Claude reescreve e compacta sessões antigas, e \
+            gasto some do passado. Um orçamento relê o mês inteiro a cada leitura, então este \
+            número pode DIMINUIR entre dois refreshes sem que ninguém tenha devolvido um \
+            centavo. O erro dele é sempre pro mesmo lado — ele subestima, nunca exagera.
+
+            O Cursor fica de fora: ele não grava uso no disco, e o que publica é a fração de \
+            um crédito já incluído no plano, no ciclo de cobrança dele — que não é o mês do \
+            calendário.
+            """
+
+        let campo = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        campo.placeholderString = "dólares por mês — ex.: 40"
+        campo.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        if let atual { campo.stringValue = Lane.cap(atual) }
+        alerta.accessoryView = campo
+
+        alerta.addButton(withTitle: "Salvar")
+        // APAGAR mora AQUI, do mesmo tamanho do salvar — e só existe quando há o que apagar.
+        // Um app que deixa definir e não deixa desfazer é uma armadilha; um que esconde o
+        // desfazer atrás de um "edite o plist" é a mesma armadilha com uma nota de rodapé.
+        if atual != nil { alerta.addButton(withTitle: "Apagar o orçamento") }
+        alerta.addButton(withTitle: "Cancelar")
+
+        NSApp.activate(ignoringOtherApps: true)
+        // Depois do `layout()` o campo existe na janela e pode receber o foco. Sem isto, o
+        // usuário abre um painel com um campo de texto e tem que clicar nele pra digitar.
+        alerta.layout()
+        alerta.window.makeFirstResponder(campo)
+
+        switch alerta.runModal() {
+        case .alertFirstButtonReturn:
+            switch BudgetStore.parse(campo.stringValue) {
+            case .value(let v):
+                setBudget(v)
+            case .erase:
+                // Campo vazio (ou zero) no botão "Salvar" é um pedido legítimo de apagar, e
+                // não um erro a esfregar na cara de ninguém. Zero dólares por mês não é um
+                // orçamento — é a ausência de um.
+                setBudget(nil)
+            case .invalid:
+                avisar(titulo: "Não entendi esse valor.", corpo: """
+                    Escreva só o número, em dólares: "40" ou "37,50".
+
+                    Eu podia tentar adivinhar o que você quis dizer, mas o teto do seu mês é a \
+                    última coisa deste app sobre a qual eu deveria dar um palpite.
+                    """)
+            }
+
+        case .alertSecondButtonReturn where atual != nil:
+            setBudget(nil)
+
+        default:
+            return
+        }
+    }
+
+    /// Definir, mudar ou apagar o teto. A pista nasce (ou some) NA HORA.
+    ///
+    /// Não passa por `scheduleRefresh`: o gasto do mês já está no `statuses` da última coleta
+    /// — não há um byte novo a ler no disco, e esperar o próximo FSEvent pra desenhar uma
+    /// coisa que o usuário ACABOU de pedir seria um app que não responde. Pior: com a leitura
+    /// PAUSADA o `refresh()` volta na porta, e definir um orçamento com o app pausado é uma
+    /// coisa perfeitamente razoável de se fazer.
+    func setBudget(_ v: Decimal?) {
+        guard v != budgetUSD else { return }
+        budgetUSD = v
+        BudgetStore.current = v   // sobrevive ao relaunch. `nil` APAGA a chave.
+        dashboard = dashboard.withBudget(v, monthSpentUSD: Dashboard.monthSpentUSD(statuses))
+    }
+
     // MARK: - Os controles do app
 
     /// O que a `PopoverView` precisa pra desenhar o menu do rodapé.
@@ -476,6 +575,8 @@ final class AppModel {
             menuBarStyle: menuBarStyle,
             hook: hookState,
             openHookPanel: { [weak self] in self?.connect(.claudeCode) },
+            budgetUSD: budgetUSD,
+            openBudgetPanel: { [weak self] in self?.abrirPainelDoOrcamento() },
             notifyAt85: notifyAt85,
             notificationsBlocked: notificationsBlocked,
             togglePause: { [weak self] in self?.togglePause() },

@@ -31,7 +31,7 @@ public struct Verdict: Sendable, Equatable {
            let lane = snap.lanes.first(where: { $0.id == resetID }) {
             return Verdict(
                 headline: "Janela nova.",
-                detail: "A janela de \(lane.windowLabel) do **\(lane.provider.displayName)** zerou. "
+                detail: "A janela de \(lane.windowLabel) do **\(lane.ownerName)** zerou. "
                       + "Cinco horas inteiras pela frente.",
                 heat: .idle,
                 tightestID: lane.id
@@ -81,7 +81,49 @@ public struct Verdict: Sendable, Equatable {
             )
         }
 
-        let janela = "janela de \(t.windowLabel) do \(t.provider.displayName)"
+        let janela = t.owner.subject(window: t.windowLabel)
+
+        // O ORÇAMENTO GANHOU O VEREDITO.
+        //
+        // Ele compete como qualquer pista (ver `Dashboard.tightest`), mas a frase NÃO pode ser
+        // a mesma: as outras falam de uma porta que fecha ("só volta a andar quando a janela
+        // virar"), e sobre orçamento isso seria mentira — ninguém é barrado por estourar o
+        // próprio teto. O que muda é o preço, não a permissão.
+        //
+        // Então o ramo é próprio, e ele diz as duas coisas na mesma respiração: você passou, E
+        // nada te impede de continuar. Sem susto, sem bloqueio inventado, sem "não abra frente
+        // nova" — que é conselho sobre TRABALHO, e o problema aqui é de BOLSO.
+        if !t.owner.stops {
+            switch t.heat {
+            case .over:
+                return Verdict(
+                    headline: "Você passou do seu orçamento.",
+                    detail: "O mês está em **\(t.displayValue)** de um teto de "
+                          + "**\(t.capUSD.map(Self.usd) ?? "—")**. Nada te impede de continuar "
+                          + "— só fica mais caro.",
+                    heat: .over,
+                    tightestID: t.id
+                )
+            case .high:
+                return Verdict(
+                    headline: "O orçamento está no fim.",
+                    detail: "Você já usou **\(t.displayValue)** do teto de "
+                          + "**\(t.capUSD.map(Self.usd) ?? "—")** que você definiu, e o mês "
+                          + "ainda não acabou. Passar dele não trava nada — só cobra.",
+                    heat: .high,
+                    tightestID: t.id
+                )
+            default:
+                return Verdict(
+                    headline: "Dá pra continuar.",
+                    detail: "O teto que mais aperta é o **\(janela)**: "
+                          + "**\(t.displayValue)** de **\(t.capUSD.map(Self.usd) ?? "—")**. "
+                          + "Nenhuma janela de provedor está mais perto do limite que ele.",
+                    heat: t.heat,
+                    tightestID: t.id
+                )
+            }
+        }
 
         switch t.heat {
         case .over:
@@ -210,7 +252,14 @@ extension Lane {
     /// rótulos ao redor (título, número, procedência) ficam escondidos: eles são a
     /// mesma informação, e ouvi-la três vezes é pior que não ouvi-la.
     public func accessibilityReading(now: Date = Date()) -> String {
-        var parts: [String] = ["\(provider.displayName), janela de \(windowLabel)."]
+        // Quem abre a fala é o SUJEITO da pista. "Orçamento, janela de mês" seria a frase de
+        // quem tratou o orçamento como um provedor a mais — que é exatamente o erro que o
+        // `LaneOwner` existe pra tornar impossível.
+        let abertura = switch owner {
+        case .provider(let p): "\(p.displayName), janela de \(windowLabel)."
+        case .budget: "Orçamento do mês, o teto que você definiu."
+        }
+        var parts: [String] = [abertura]
 
         parts.append(spokenQuota)
 
@@ -238,7 +287,7 @@ extension Lane {
             if let cap = capUSD {
                 // O que a gente sabe do Cursor sem credencial é o TETO, não o gasto.
                 // Dizer só o teto é honesto; deixá-lo implícito seria esconder metade.
-                s += " O crédito da janela é de \(Self.dollars(cap)) dólares."
+                s += " O \(capNoun) da janela é de \(Lane.cap(cap)) dólares."
             }
             return s
         }
@@ -258,6 +307,15 @@ extension Lane {
                  + "do que ficou no disco.\(over)"
 
         case .derived:
+            // O orçamento diz de onde vem o palpite, porque em dinheiro o "de onde" É a
+            // ressalva: não é uma margem de erro, é o fato de que isto é preço de tabela e
+            // não a fatura. Quem lê por som não vê o reticulado nem lê o rodapé da tela —
+            // se a frase não disser, ele nunca fica sabendo.
+            if case .budget = owner {
+                return "Já foram \(spokenAmount(used)). Estimado do disco a preço de tabela "
+                     + "da API — não é a sua fatura, e é um piso: gasto que o Claude apagou "
+                     + "do disco não é contado.\(over)"
+            }
             var s = "Queimou cerca de \(spokenAmount(used)), número estimado"
             if case .derived(let lo, let hi) = certainty, let lo, let hi {
                 // A faixa é o que separa palpite honesto de chute. Se o core não a
@@ -277,13 +335,34 @@ extension Lane {
     private func spokenAmount(_ used: Double) -> String {
         switch unit {
         case .percent:
-            return "\(Self.pct(used)) da cota"
+            return "\(Self.pct(used)) \(quotaNoun)"
         case .usd:
-            guard let cap = capUSD else { return "\(Self.pct(used)) da cota" }
+            guard let cap = capUSD else { return "\(Self.pct(used)) \(quotaNoun)" }
             let capValue = (cap as NSDecimalNumber).doubleValue
             let spent = used / 100 * capValue
-            return "\(Self.money(spent)) dólares dos \(Self.dollars(cap)) do crédito, "
-                 + "\(Self.pct(used)) da cota"
+            return "\(Self.money(spent)) dólares dos \(Lane.cap(cap)) do \(capNoun), "
+                 + "\(Self.pct(used)) \(quotaNoun)"
+        }
+    }
+
+    /// O nome do denominador em US$. O do Cursor é um CRÉDITO — dinheiro que o plano já
+    /// incluiu e que ele te devolve em compute. O do orçamento é um TETO, e é seu: você o
+    /// escreveu, ninguém te deu. Chamar os dois de "crédito" apagaria a única diferença que
+    /// importa entre eles — um você recebeu, o outro você prometeu.
+    private var capNoun: String {
+        switch owner {
+        case .budget: "orçamento"
+        case .provider: "crédito"
+        }
+    }
+
+    /// A fração, dita: "68% da cota" · "88% do orçamento". Uma COTA é o que o provedor te
+    /// concede; um ORÇAMENTO é o que você concede a si mesmo. Dizer "88% da cota" sobre um
+    /// teto que o usuário digitou faria o app soar como se a regra viesse de fora.
+    private var quotaNoun: String {
+        switch owner {
+        case .budget: "do orçamento"
+        case .provider: "da cota"
         }
     }
 
@@ -323,10 +402,5 @@ extension Lane {
     /// "6,40" — vírgula decimal, que é como o pt-BR lê (e diz) dinheiro.
     private static func money(_ v: Double) -> String {
         String(format: "%.2f", v).replacingOccurrences(of: ".", with: ",")
-    }
-
-    /// O teto em dólar, sem centavos: "20". Cotas de crédito são redondas.
-    private static func dollars(_ d: Decimal) -> String {
-        "\(Int((d as NSDecimalNumber).doubleValue.rounded()))"
     }
 }

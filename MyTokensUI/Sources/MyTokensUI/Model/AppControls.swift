@@ -44,6 +44,21 @@ public struct AppControls {
     /// pro mesmo cômodo, não um segundo cômodo.
     public var openHookPanel: () -> Void
 
+    /// O teto de gasto mensal, em US$. `nil` = NÃO EXISTE orçamento.
+    ///
+    /// E "não existe" não é "zero". Sem teto não há pista de orçamento na tela — não há uma
+    /// pista vazia esperando um número, não há "US$ 0 de US$ 0". O menu é o único lugar onde
+    /// o orçamento aparece antes de existir, e lá ele aparece como convite, não como fato.
+    public var budgetUSD: Decimal?
+    /// Abre o painel do orçamento: digitar, mudar, ou APAGAR.
+    ///
+    /// Apagar é obrigatório, e é obrigatório no MESMO painel — não numa nota de rodapé, não
+    /// num "para remover, edite o plist". Um app que deixa você definir e não deixa desfazer
+    /// é uma armadilha, mesmo quando a armadilha é reversível por quem sabe onde mexer. Pelo
+    /// mesmo motivo o painel do hook do statusLine tem o botão de desinstalar do lado do de
+    /// instalar: quem instala tem o dever de oferecer a saída, no lugar onde entrou.
+    public var openBudgetPanel: () -> Void
+
     /// Avisar quando uma janela cruza 85% (UI-SPEC §7). Nasce ligado.
     public var notifyAt85: Bool
     /// O macOS BARROU os avisos. Quando isto é `true`, o menu para de oferecer o toggle e
@@ -66,6 +81,8 @@ public struct AppControls {
         menuBarStyle: MenuBarStyle = .iconOnly,
         hook: HookState = .indeciso,
         openHookPanel: @escaping () -> Void = {},
+        budgetUSD: Decimal? = nil,
+        openBudgetPanel: @escaping () -> Void = {},
         notifyAt85: Bool = true,
         notificationsBlocked: Bool = false,
         togglePause: @escaping () -> Void = {},
@@ -82,6 +99,8 @@ public struct AppControls {
         self.menuBarStyle = menuBarStyle
         self.hook = hook
         self.openHookPanel = openHookPanel
+        self.budgetUSD = budgetUSD
+        self.openBudgetPanel = openBudgetPanel
         self.notifyAt85 = notifyAt85
         self.notificationsBlocked = notificationsBlocked
         self.togglePause = togglePause

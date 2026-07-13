@@ -35,6 +35,16 @@ enum Shot: String, CaseIterable {
     case realWindow       // idem, na janela expandida
     case realTerminal     // idem, no tema Terminal (fósforo verde)
     case realTerminalWindow
+    /// O disco desta máquina COM um orçamento de US$ 200 injetado.
+    ///
+    /// Ele é injetado, e não lido do `BudgetStore`, porque a galeria não tem o UserDefaults do
+    /// app — e porque a pista do orçamento só existe quando existe um orçamento, o que faz
+    /// dela a única pista que eu não consigo fotografar contra o disco real sem dizer um
+    /// número. O número é da GALERIA; o gasto medido contra ele é do DISCO. É o único jeito de
+    /// ver a pista nova contra o mês de verdade do Jair.
+    case realBudget
+    /// O mesmo, no POPOVER e no tema Terminal — os 340 px mais o valor mais largo do app.
+    case realBudgetPopover
 
     /// O mock é desenho; `real` é o app. A galeria roda os dois na MESMA view — se a
     /// pista só ficar bonita com dado inventado, o problema é a pista.
@@ -47,22 +57,25 @@ enum Shot: String, CaseIterable {
         case .reset: Mock.justReset
         case .overrun: Mock.overrun
         case .lanes: Mock.normal
-        case .real, .realWindow, .realTerminal, .realTerminalWindow:
+        case .real, .realWindow, .realTerminal, .realTerminalWindow, .realBudget, .realBudgetPopover:
             Dashboard(lanes: [])   // substituído no launch pela leitura de verdade
         }
     }
 
     var isWindow: Bool {
-        self == .window || self == .windowAlmost || self == .realWindow || self == .realTerminalWindow
+        self == .window || self == .windowAlmost || self == .realWindow
+            || self == .realTerminalWindow || self == .realBudget
     }
 
     var size: CGSize {
         switch self {
         case .lanes: CGSize(width: 700, height: 420)
-        // A janela cresceu: ela ganhou o PASSADO (o trilho de 30 dias, onde foi, em que
-        // modelo). Fotografar a bancada nova em 560 pt cortaria fora exatamente o que há
-        // de novo pra olhar.
-        case .window, .windowAlmost, .realWindow, .realTerminalWindow: CGSize(width: 960, height: 900)
+        // Um pouco MAIOR que a altura intrínseca da bancada (o `CONTENT_HEIGHT` que o launch
+        // imprime): a janela da galeria é chumbada, e se ela for menor que o conteúdo, o
+        // desenho é espremido e a foto mente sobre o espaçamento. Maior, o `Spacer` só abre
+        // um vão morto antes do rodapé — que não engana ninguém.
+        case .window, .windowAlmost, .realWindow, .realTerminalWindow, .realBudget:
+            CGSize(width: 960, height: 1040)
         default: CGSize(width: 380, height: 560)   // popover + folga pro desktop
         }
     }
@@ -91,8 +104,22 @@ final class Delegate: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.contentView = NSHostingView(rootView: root)
+
+        let host = NSHostingView(rootView: root)
+        window.contentView = host
         window.level = .floating
+
+        // A ALTURA QUE A JANELA DE VERDADE VAI TER — e ela não é a desta janela aqui.
+        //
+        // O app usa `.windowResizability(.contentSize)`: a altura dele é a altura INTRÍNSECA
+        // da MainWindowView. A janela da galeria tem tamanho chumbado, e o `Spacer` da view
+        // estica pra preencher — então fotografar a galeria NUNCA responde "isso cabe na tela
+        // do Jair?". E precisa responder: a janela não rola, e a tela dele tem 1080 px. Uma
+        // bancada de 1.100 px é uma bancada com a resposta embaixo da dobra.
+        //
+        // `fittingSize` responde. O `Spacer(minLength: 0)` contribui com zero pro ideal, então
+        // o que sai daqui é exatamente a altura que o `.contentSize` vai pedir.
+        Self.measure(host, shot: shot)
         // Origem fixa: o script de screenshot recorta exatamente esta região.
         window.setFrameOrigin(NSPoint(x: 80, y: 200))
         window.makeKeyAndOrderFront(nil)
@@ -102,6 +129,22 @@ final class Delegate: NSObject, NSApplicationDelegate {
         // O `screencapture -l<id>` recorta exatamente esta janela — sem depender
         // de coordenada de tela nem de quem está na frente.
         note("WINDOW_ID \(window.windowNumber)")
+    }
+
+    /// Mede e RECLAMA. O limite de 1080 é a tela do Jair menos a barra de menu (~25 px) —
+    /// e um app de barra de menu cuja janela não cabe na tela é um app que não abre.
+    ///
+    /// Nos estados `real` o conteúdo só existe depois que o motor varre o disco, então a
+    /// medida é refeita: a primeira é do estado vazio e não vale nada.
+    private static func measure(_ host: NSHostingView<some View>, shot: Shot) {
+        guard shot.isWindow else { return }
+        for delay in [0.6, 6.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                let h = host.fittingSize.height
+                let teto: CGFloat = 1055   // 1080 − a barra de menu
+                note("CONTENT_HEIGHT \(Int(h)) \(h > teto ? "*** ESTOUROU o teto de \(Int(teto)) ***" : "ok (teto \(Int(teto)))")")
+            }
+        }
     }
 }
 
@@ -126,6 +169,14 @@ struct GalleryRoot: View {
             DesktopBacking { RealStage(window: false, theme: .terminal) }
         case .realTerminalWindow:
             RealStage(window: true, theme: .terminal)
+        case .realBudget:
+            RealStage(window: true, theme: .bancada, budgetUSD: 200)
+        case .realBudgetPopover:
+            // O POPOVER com o valor mais largo que este app consegue produzir. Não é
+            // preciosismo: o popover tem 340 px, o número NÃO TRUNCA (é lei desde o 270684b),
+            // e o disco real do Jair produz "US$ 2.840,27 / 200" — quatro dígitos e centavos,
+            // que é justamente o caso que a coluna de 190 pt da janela não aguentou.
+            DesktopBacking { RealStage(window: false, theme: .terminal, budgetUSD: 200) }
         default:
             DesktopBacking {
                 PopoverView(snapshot: shot.snapshot)
@@ -142,6 +193,9 @@ struct GalleryRoot: View {
 struct RealStage: View {
     let window: Bool
     var theme: Theme = .bancada
+    /// `nil` = sem orçamento, que é o estado de quem nunca definiu um — e aí a pista NÃO
+    /// EXISTE. É o default de propósito: o estado sem orçamento também precisa ser olhado.
+    var budgetUSD: Decimal?
     @State private var snapshot = Dashboard(lanes: [])
 
     var body: some View {
@@ -155,7 +209,7 @@ struct RealStage: View {
             .task {
                 do {
                     let engine = try MyTokensEngine()
-                    snapshot = Dashboard(await engine.refresh())
+                    snapshot = Dashboard(await engine.refresh(), budgetUSD: budgetUSD)
                     // O script de screenshot espera esta linha antes de disparar —
                     // capturar antes seria fotografar o estado vazio e chamar de real.
                     note("REAL_READY \(snapshot.lanes.count) pistas")

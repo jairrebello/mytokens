@@ -100,7 +100,7 @@ public enum Mock {
                     nowFraction: 0.46, resetsAt: inDays(4, 9, 20)
                 ),
                 cursorAbsent,
-            ],
+            ] + budget(spent: 68.40),   // 34% de US$ 200 — tinta ATRÁS do cursor: dá pra ir
             discovered: [.claudeCode, .codex],
             todayCostUSD: 4.12,
             history: history(today: 4.12)
@@ -115,6 +115,21 @@ public enum Mock {
             nowFraction: 0.41,          // o relógio a gente SEMPRE sabe
             capUSD: 20, unit: .usd
         )
+    }
+
+    /// A pista do ORÇAMENTO — a única da tela que não mede um provedor.
+    ///
+    /// Ela é construída pela MESMA fábrica que o app usa (`Lane.budget`), e não escrita à mão
+    /// como as outras: o `nowFraction` dela é o quanto do mês DE VERDADE já passou, calculado
+    /// pelo `Calendar` no instante em que a galeria roda. Um cursor de mês chumbado num
+    /// literal fotografaria um mês que não existe — e o vão entre a tinta e o cursor, que é a
+    /// resposta inteira desta pista, viraria decoração.
+    ///
+    /// Nos mocks o teto é US$ 200 e o gasto é o do mês corrente na mesma ordem de grandeza do
+    /// trilho de 30 dias logo abaixo (~US$ 160). Dois números da mesma tela que não fechassem
+    /// entre si validariam uma tela que o disco nunca vai produzir.
+    static func budget(spent: Decimal, cap: Decimal = 200, live: Bool = true) -> [Lane] {
+        [Lane.budget(spentUSD: spent, capUSD: cap, isLive: live)].compactMap { $0 }
     }
 
     // MARK: - Vazio — o primeiro boot
@@ -168,7 +183,10 @@ public enum Mock {
                     nowFraction: 0.46, resetsAt: inDays(4, 9, 20)
                 ),
                 cursorAbsent,
-            ],
+            // 88% do teto — a pista do orçamento também aperta. Repare no que ela NÃO faz:
+            // ela não vira o herói e não muda o veredito. "Aperta o passo" continua sendo
+            // sobre a janela de 5 h do Claude, que é a única das duas que pode te PARAR.
+            ] + budget(spent: 176),
             discovered: [.claudeCode, .codex],
             todayCostUSD: 11.80,
             history: history(today: 11.80)

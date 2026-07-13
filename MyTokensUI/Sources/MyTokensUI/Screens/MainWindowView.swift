@@ -159,27 +159,102 @@ public struct MainWindowView: View {
     // MARK: - A bancada
     // grid: 170 · 1fr · 150
 
+    // GRID, e não HStack de larguras chumbadas — que é o que o UI-SPEC §5 sempre pediu, e o
+    // que esta tela vinha desobedecendo desde o primeiro dia.
+    //
+    // A coluna do número era `.frame(width: 190)`, dimensionada à mão pro "pior caso": o
+    // "US$ 18,40 / 20" do Cursor. Só que o número da pista NÃO TRUNCA (é `fixedSize`, e isso
+    // é lei desde o commit 270684b — dado com reticências é dado que mentiu por omissão).
+    // Largura fixa + proibição de truncar = TRANSBORDO. E o orçamento produz "US$ 2.833,37 /
+    // 200", que é o que finalmente fez o número escorrer PRA CIMA DO TRILHO, colidindo com a
+    // tinta. Fotografado contra o disco real do Jair, não deduzido.
+    //
+    // O `Grid` mede antes de desenhar: a coluna do número nasce da largura do MAIOR número da
+    // tela, e a pista fica com o que sobra — em todas as linhas ao mesmo tempo, que é o que
+    // mantém as pistas começando e terminando no mesmo x. É a mesma correção que o `SpendList`
+    // já tinha feito quando o disco real estourou a coluna dele. Uma régua chumbada só
+    // funciona com números que a gente já viu.
     private var bench: some View {
         VStack(alignment: .leading, spacing: 0) {
-            axisHeader
-            ForEach(snapshot.lanes) { lane in
-                benchRow(lane)
+            Grid(alignment: .leading, horizontalSpacing: S.s4, verticalSpacing: 0) {
+                axisHeader
+                ForEach(snapshot.lanes) { lane in
+                    // Uma view solta dentro do Grid ocupa uma linha que ATRAVESSA todas as
+                    // colunas — é assim que o fio continua indo de ponta a ponta agora que
+                    // ele não pode mais ser um `.overlay` da linha inteira.
+                    Rectangle().fill(p.lineSoft).frame(height: 1)
+                    benchRow(lane)
+                }
             }
+
+            // A NOTA FICA FORA DA GRADE, e isso não é arrumação — é a diferença entre a tela
+            // caber e não caber.
+            //
+            // Uma linha que atravessa o Grid participa do dimensionamento dele, e a largura
+            // IDEAL de um parágrafo é o parágrafo SEM QUEBRA: ~1.020 pt de frase numa janela
+            // de 960. O Grid obedecia (é o trabalho dele: acomodar a linha mais larga), a
+            // bancada inteira esticava pra 1.220 pt e a coluna do número era empurrada pra
+            // fora da tela. Fotografei, vi, e é por isso que ela mora aqui: ela é uma
+            // RESSALVA sobre a grade, não uma linha dela.
+            budgetNote
         }
         .padding(.horizontal, S.s6)
         .padding(.vertical, S.s4)
+    }
+
+    /// A RESSALVA DO DINHEIRO. Só existe quando existe a pista do orçamento — uma frase sobre
+    /// uma pista que ninguém está vendo é ruído, e o app já tem rodapé demais pra ler.
+    ///
+    /// Ela diz as duas coisas que o desenho não consegue dizer sozinho, e que nenhum outro
+    /// texto da tela cobre:
+    ///
+    ///   1. O NÚMERO É UM PISO. O disco do Claude é MUTÁVEL: sessão antiga é reescrita e
+    ///      compactada, e gasto SOME do passado. Um orçamento relê o mês inteiro a cada
+    ///      refresh — então esta barra pode ENCOLHER entre duas leituras, sem que ninguém
+    ///      tenha devolvido um centavo. Uma barra que anda pra trás sem explicação destrói a
+    ///      confiança no instrumento de uma vez só; explicada, ela vira exatamente o que é:
+    ///      um erro que só acontece pra baixo. Ele subestima, e nunca exagera.
+    ///
+    ///   2. O CURSOR NÃO ENTRA. Ele não grava uso no disco e não emite evento nenhum — o que
+    ///      ele publica é a fração de um crédito INCLUÍDO no plano, no ciclo de cobrança dele,
+    ///      que não é o mês do calendário. Um usuário de Cursor que lesse "orçamento" e
+    ///      pensasse "então está tudo aqui dentro" teria sido enganado por omissão, que é a
+    ///      mentira preferida dos dashboards.
+    ///
+    /// Que isto é preço de tabela e não fatura, o rodapé já diz — e diz pros dois números em
+    /// US$ da tela. Repetir aqui seria roubar a linha de quem tem o que dizer.
+    /// UMA LINHA, e não duas — e a segunda linha não foi cortada por estética.
+    ///
+    /// A janela não rola e a tela do Jair tem 1080 px. Com a pista do orçamento, a bancada
+    /// passou a medir exatamente 1080: a ressalva em dois parágrafos era o que empurrava a
+    /// resposta pra fora da tela. Uma frase que ninguém consegue ver porque a janela não abre
+    /// é menos honesta que uma frase curta. O que sobrou diz as duas coisas que precisavam ser
+    /// ditas — o piso e o Cursor — e o resto (o porquê inteiro) mora no painel onde o teto foi
+    /// definido, que é onde ele tem espaço pra ser lido com calma.
+    @ViewBuilder
+    private var budgetNote: some View {
+        if snapshot.lanes.contains(where: { $0.owner == .budget }) {
+            Text(
+                "O orçamento é um PISO: o Claude reescreve sessões antigas, e o que sai do "
+                + "disco sai daqui. O Cursor não entra — ele mede crédito incluído."
+            )
+            .font(.ui(T.xs))
+            .foregroundStyle(p.ink4)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, S.s2)
+        }
     }
 
     /// A régua do eixo. Ela diz, sem uma palavra, que o eixo é NORMALIZADO:
     /// "50% DA JANELA", não "2h30". É o que autoriza 5 h, 7 d e US$ 20/mês a
     /// dividirem a mesma tela sem que isso seja mentira.
     private var axisHeader: some View {
-        HStack(spacing: S.s4) {
+        GridRow {
             Text("JANELA")
                 .font(.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
-                .frame(width: 170, alignment: .leading)
+                .frame(width: Self.nameColumn, alignment: .leading)
 
             ZStack(alignment: .leading) {
                 GeometryReader { geo in
@@ -197,12 +272,15 @@ public struct MainWindowView: View {
                 }
                 .frame(height: 12)
             }
+            .frame(minWidth: Self.laneMin, idealWidth: Self.laneIdeal, maxWidth: .infinity)
 
             Text("FONTE")
                 .font(.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
-                .frame(width: Self.valueColumn, alignment: .trailing)
+                // É esta coluna que o Grid dimensiona pelo MAIOR número da tela. O
+                // `.trailing` é declarado UMA vez, aqui, e vale pra coluna inteira.
+                .gridColumnAlignment(.trailing)
         }
         .padding(.bottom, S.s4)
         // A régua é GRADUAÇÃO — ela existe pra dar escala ao traço. Quem lê por
@@ -211,29 +289,45 @@ public struct MainWindowView: View {
         .accessibilityHidden(true)
     }
 
-    /// A coluna do número, larga o bastante pro PIOR caso: "US$ 18,40 / 20" em 26 pt mono.
-    /// Fixa (não por-linha) pra as pistas alinharem — começam e terminam no mesmo x. A
-    /// janela tem 960 px; os 40 px a mais saem da pista, que tem folga de sobra.
-    static let valueColumn: CGFloat = 190
+    /// A coluna do NOME. Esta continua chumbada, e pode: o que mora nela são dois rótulos
+    /// nossos ("Claude", "Orçamento") e um label de janela — texto que o app escreve, não
+    /// número que o disco produz. É o número que é imprevisível, e é ele que ganhou o Grid.
+    static let nameColumn: CGFloat = 170
+
+    /// A pista é um `GeometryReader`, e um `GeometryReader` NÃO TEM tamanho ideal — ele
+    /// devolve o que lhe propuserem. Num `HStack` isso não importava (o flexível come a
+    /// sobra); num `Grid` importa muito: sem uma largura ideal, o Grid não sabe dimensionar a
+    /// coluna, e a régua toda escapa pra fora da janela. O `SpendList` já tinha aprendido
+    /// isto — a pista dele leva `minWidth: 60, idealWidth: 200` pelo mesmo motivo.
+    ///
+    /// O `min` é o ponto em que a pista para de ceder: abaixo disso ela deixaria de ser
+    /// legível como medida, e aí é melhor a janela ficar apertada do que a pista virar um
+    /// traço. `max: .infinity` mantém ela sendo quem paga a conta quando o número engorda.
+    static let laneMin: CGFloat = 200
+    static let laneIdeal: CGFloat = 460
 
     private func benchRow(_ lane: Lane) -> some View {
-        HStack(alignment: .center, spacing: S.s4) {
+        GridRow(alignment: .center) {
             // quem — escrito pro olho. Pro ouvido, quem se apresenta é a pista:
             // "Claude, janela de 5 h" abre a fala dela.
             VStack(alignment: .leading, spacing: 2) {
-                Text(lane.provider.displayName)
+                Text(lane.ownerName)
                     .font(.ui(T.md, .medium))
                     .foregroundStyle(p.ink0)
                 Text(lane.windowLabel)
                     .font(.ui(T.xs))
                     .foregroundStyle(p.ink3)
             }
-            .frame(width: 170, alignment: .leading)
+            .frame(width: Self.nameColumn, alignment: .leading)
             .accessibilityHidden(true)
 
             // a pista — 14 pt, com agulha. É ela que FALA a linha inteira.
+            // Ela é a coluna ELÁSTICA: quando o número engorda, quem cede largura é a pista,
+            // que tem folga de sobra. O contrário — a pista fixa e o número espremido — só
+            // teria duas saídas, truncar o dado ou escorrer por cima do trilho, e as duas
+            // já foram cometidas nesta tela.
             LaneView(lane: lane, height: 14, showNeedle: true)
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: Self.laneMin, idealWidth: Self.laneIdeal, maxWidth: .infinity)
 
             // o número + a procedência, em palavra
             VStack(alignment: .trailing, spacing: 3) {
@@ -243,15 +337,17 @@ public struct MainWindowView: View {
                     RangeText(lane: lane)
                         .accessibilityHidden(true)   // idem: a faixa 41–68 é dita lá
                     if lane.certainty.hasInk {
-                        Text(lane.certainty.provenanceLabel())
+                        Text(lane.provenanceNote)
                             .font(.ui(T.micro))
                             .tracking(0.05 * T.micro)
                             .foregroundStyle(p.ink3)
                             .accessibilityHidden(true)   // idem: a certeza abre a frase
-                    } else {
+                    } else if let provider = lane.provider {
                         // A única AÇÃO da linha — e a única coisa dela que o
                         // VoiceOver ainda para. "conectar", sozinho, não diz o quê.
-                        Button("conectar") { onConnect(lane.provider) }
+                        // (o orçamento nunca cai aqui: não há o que conectar num teto
+                        // que o próprio usuário digitou — ver PopoverView)
+                        Button("conectar") { onConnect(provider) }
                             .buttonStyle(.plain)
                             .font(.ui(T.xs))
                             .foregroundStyle(p.ember)
@@ -259,19 +355,21 @@ public struct MainWindowView: View {
                                 Rectangle().fill(p.ember.opacity(0.35))
                                     .frame(height: 1).offset(y: 2)
                             }
-                            .accessibilityLabel("Conectar o \(lane.provider.displayName)")
+                            .accessibilityLabel("Conectar o \(provider.displayName)")
                     }
                 }
             }
-            .frame(width: Self.valueColumn, alignment: .trailing)
         }
-        // 24 → 16 → 12. A bancada cedeu ar vertical pra história caber na tela do Jair
-        // (1080 px, e a janela não rola). O ar horizontal e a hierarquia ficaram intactos:
-        // quem encolheu foi a margem entre as pistas, não o que cada pista diz.
-        .padding(.vertical, S.s3)
-        .overlay(alignment: .top) {
-            Rectangle().fill(p.lineSoft).frame(height: 1)
-        }
+        // 24 → 16 → 12 → 8. A bancada cede ar vertical toda vez que ganha uma linha, porque a
+        // tela do Jair tem 1080 px e esta janela NÃO ROLA — uma tela que rola é uma tela onde
+        // a resposta pode estar embaixo da dobra, e este app existe pra responder de relance.
+        // Com a pista do orçamento a bancada bateu 1.080 px exatos: sem este passo, ela deixava
+        // de abrir.
+        //
+        // Continua sendo a MARGEM que encolhe, nunca o que cada pista diz — a mesma troca que
+        // a história já tinha feito. E ainda sobra folga: o que fixa a altura da linha é a
+        // coluna do nome (~36 pt), e a agulha do "agora" (34 pt) continua cabendo inteira.
+        .padding(.vertical, S.s2)
     }
 
     // MARK: - O passado
@@ -381,8 +479,12 @@ public struct MainWindowView: View {
                     .foregroundStyle(p.ink3)
                 // Custo é a ÚNICA coisa que a soma de token pode virar.
                 // Ela NUNCA vira "quanto sobra" — ninguém publica o teto em token.
-                Text(String(format: "US$ %.2f", (snapshot.todayCostUSD as NSDecimalNumber).doubleValue)
-                        .replacingOccurrences(of: ".", with: ","))
+                //
+                // `Verdict.usd` é o formatter de dinheiro DO APP, e agora ele é o único: o
+                // `String(format:)` que morava aqui não agrupava milhar, e num dia de US$
+                // 4608 imprimia "US$ 4608,00" enquanto a lista de projetos, do lado, imprimia
+                // "US$ 4.608,00". Dois jeitos de escrever o mesmo dinheiro na mesma tela.
+                Text(Verdict.usd(snapshot.todayCostUSD))
                     .font(.num(T.sm))
                     .foregroundStyle(p.ink1)
             }
