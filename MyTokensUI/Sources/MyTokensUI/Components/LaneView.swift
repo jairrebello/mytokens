@@ -46,8 +46,27 @@ public struct LaneView: View {
                 nowCursor(w: w)
             }
             .frame(height: height)
+            // A tinta ANDA até o valor novo — não pula. Mola crítica (damping 1.0):
+            // um dado que passa do valor e volta é um dado que mentiu por 80 ms.
+            // Sob Reduce Motion isto vira um ease-out de 200 ms: o movimento
+            // encolhe, o valor final é exatamente o mesmo. Ver Design/ReduceMotion.
+            .motion(.data, value: lane.used)
+            .motion(.data, value: lane.nowFraction)
         }
         .frame(height: height)
+        // ─────────────────────────────────────────────────────────────────────
+        // A PISTA FALA. Ela é UM elemento acessível, e diz a leitura inteira —
+        // provedor, janela, quanto queimou, com que certeza, quanto do tempo
+        // passou, quando zera. `children: .ignore` porque tudo que mora dentro
+        // dela é desenho: hachura, costura, cursor, transbordo. Nenhum retângulo
+        // tem nome, e nenhum precisa ter — quem tem nome é a leitura.
+        //
+        // Os rótulos ao redor (título, número, procedência) são a MESMA
+        // informação, escrita pro olho. Nas duas telas eles são escondidos do
+        // VoiceOver: ouvir a mesma coisa três vezes é pior que não ouvi-la.
+        // ─────────────────────────────────────────────────────────────────────
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(lane.accessibilityReading())
     }
 
     // MARK: - Trilho

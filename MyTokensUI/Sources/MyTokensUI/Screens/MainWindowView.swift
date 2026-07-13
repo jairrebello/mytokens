@@ -50,19 +50,25 @@ public struct MainWindowView: View {
 
     private var verdictBlock: some View {
         VStack(alignment: .leading, spacing: S.s3) {
-            HStack(spacing: S.s3) {
-                if snapshot.isEmpty { EmptyPulse() }
-                Text(verdict.headline)
-                    .font(.ui(T.xxxl, .semibold))
-                    .tracking(-0.035 * T.xxxl)
-                    .foregroundStyle(verdict.heat == .over ? p.emberHot : p.ink0)
-            }
+            // A RESPOSTA. Headline e frase são UMA ideia — e viram UMA fala:
+            // duas paradas do VoiceOver pra dizer uma coisa só seria gagueira.
+            VStack(alignment: .leading, spacing: S.s3) {
+                HStack(spacing: S.s3) {
+                    if snapshot.isEmpty { EmptyPulse() }
+                    Text(verdict.headline)
+                        .font(.ui(T.xxxl, .semibold))
+                        .tracking(-0.035 * T.xxxl)
+                        .foregroundStyle(verdict.heat == .over ? p.emberHot : p.ink0)
+                }
 
-            RichText(verdict.detail, base: p.ink2, strong: p.ink0)
-                .font(.ui(T.md))
-                .lineSpacing(4)
-                .frame(maxWidth: 640, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+                RichText(verdict.detail, base: p.ink2, strong: p.ink0)
+                    .font(.ui(T.md))
+                    .lineSpacing(4)
+                    .frame(maxWidth: 640, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(verdict.spoken)
 
             if let t = snapshot.tightest, !snapshot.isEmpty {
                 clockline(t)
@@ -78,18 +84,28 @@ public struct MainWindowView: View {
     private func clockline(_ t: Lane) -> some View {
         HStack(spacing: S.s4) {
             if let slack = t.slackLabel {
-                metric("Folga na mais apertada", slack, hot: (t.slackPoints ?? 0) < 0)
+                metric("Folga na mais apertada", slack,
+                       spoken: t.spokenSlack ?? slack,
+                       hot: (t.slackPoints ?? 0) < 0)
             }
             if let reset = t.resetsAt {
-                metric("Zera", Verdict.hm(reset), hot: false)
+                metric("Zera", Verdict.hm(reset),
+                       spoken: Verdict.hm(reset),
+                       hot: false)
             }
             if let pace = t.paceLabel {
-                metric("Ritmo", pace, hot: false)
+                metric("Ritmo", pace,
+                       spoken: t.spokenPace ?? pace,
+                       hot: false)
             }
         }
     }
 
-    private func metric(_ label: String, _ value: String, hot: Bool) -> some View {
+    /// O rótulo vai em caixa alta e o valor em glifo (`+14 pts`, `0,86×`) — as duas
+    /// coisas que o olho lê rápido e o ouvido lê mal. `spoken` é a mesma métrica
+    /// dita em palavra: nada de "mais catorze p t s" nem de "zero vírgula oitenta e
+    /// seis vezes o sinal de multiplicação".
+    private func metric(_ label: String, _ value: String, spoken: String, hot: Bool) -> some View {
         HStack(spacing: S.s2) {
             Text(label.uppercased())
                 .font(.ui(T.micro, .medium))
@@ -100,6 +116,9 @@ public struct MainWindowView: View {
                 .foregroundStyle(hot ? p.emberHot : p.ink1)
         }
         .padding(.trailing, S.s3)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(spoken)
     }
 
     // MARK: - A bancada
@@ -151,6 +170,10 @@ public struct MainWindowView: View {
                 .frame(width: Self.valueColumn, alignment: .trailing)
         }
         .padding(.bottom, S.s4)
+        // A régua é GRADUAÇÃO — ela existe pra dar escala ao traço. Quem lê por
+        // som não tem traço nenhum: ouve "68% da cota" direto da pista, e "0%,
+        // 50% da janela, 100%" seria só uma fileira de números sem referente.
+        .accessibilityHidden(true)
     }
 
     /// A coluna do número, larga o bastante pro PIOR caso: "US$ 18,40 / 20" em 26 pt mono.
@@ -160,7 +183,8 @@ public struct MainWindowView: View {
 
     private func benchRow(_ lane: Lane) -> some View {
         HStack(alignment: .center, spacing: S.s4) {
-            // quem
+            // quem — escrito pro olho. Pro ouvido, quem se apresenta é a pista:
+            // "Claude, janela de 5 h" abre a fala dela.
             VStack(alignment: .leading, spacing: 2) {
                 Text(lane.provider.displayName)
                     .font(.ui(T.md, .medium))
@@ -170,22 +194,28 @@ public struct MainWindowView: View {
                     .foregroundStyle(p.ink3)
             }
             .frame(width: 170, alignment: .leading)
+            .accessibilityHidden(true)
 
-            // a pista — 14 pt, com agulha
+            // a pista — 14 pt, com agulha. É ela que FALA a linha inteira.
             LaneView(lane: lane, height: 14, showNeedle: true)
                 .frame(maxWidth: .infinity)
 
             // o número + a procedência, em palavra
             VStack(alignment: .trailing, spacing: 3) {
                 ValueText(lane: lane, size: T.xl)
+                    .accessibilityHidden(true)   // já está na fala da pista
                 HStack(spacing: 5) {
                     RangeText(lane: lane)
+                        .accessibilityHidden(true)   // idem: a faixa 41–68 é dita lá
                     if lane.certainty.hasInk {
                         Text(lane.certainty.provenanceLabel())
                             .font(.ui(T.micro))
                             .tracking(0.05 * T.micro)
                             .foregroundStyle(p.ink3)
+                            .accessibilityHidden(true)   // idem: a certeza abre a frase
                     } else {
+                        // A única AÇÃO da linha — e a única coisa dela que o
+                        // VoiceOver ainda para. "conectar", sozinho, não diz o quê.
                         Button("conectar") { onConnect(lane.provider) }
                             .buttonStyle(.plain)
                             .font(.ui(T.xs))
@@ -194,6 +224,7 @@ public struct MainWindowView: View {
                                 Rectangle().fill(p.ember.opacity(0.35))
                                     .frame(height: 1).offset(y: 2)
                             }
+                            .accessibilityLabel("Conectar o \(lane.provider.displayName)")
                     }
                 }
             }
@@ -224,6 +255,14 @@ public struct MainWindowView: View {
                     .font(.num(T.sm))
                     .foregroundStyle(p.ink1)
             }
+            // "US$" é sigla pro olho. Pro ouvido é "dólares" — e o valor continua
+            // sendo o gasto do dia, nunca "quanto sobra".
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Queimado hoje em API")
+            .accessibilityValue(
+                String(format: "%.2f", (snapshot.todayCostUSD as NSDecimalNumber).doubleValue)
+                    .replacingOccurrences(of: ".", with: ",") + " dólares"
+            )
         }
         .padding(.horizontal, S.s6)
         .padding(.vertical, S.s3)

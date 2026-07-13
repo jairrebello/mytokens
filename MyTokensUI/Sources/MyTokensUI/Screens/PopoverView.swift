@@ -86,6 +86,10 @@ public struct PopoverView: View {
         .padding(.horizontal, S.s4)
         .padding(.top, S.s4)
         .padding(.bottom, S.s3)
+        // A RESPOSTA vem primeiro — no olho e no ouvido. Headline e frase são UMA
+        // fala só: separá-las daria ao VoiceOver duas paradas pra dizer uma ideia.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(verdict.spoken)
     }
 
     // MARK: - As pistas
@@ -102,6 +106,8 @@ public struct PopoverView: View {
 
     private func row(_ lane: Lane) -> some View {
         VStack(alignment: .leading, spacing: 3) {
+            // Título e número são a MESMA informação que a pista já fala, escrita
+            // pro olho. Escondidos do VoiceOver: quem lê a pista é a pista.
             HStack(alignment: .firstTextBaseline) {
                 Text(lane.title)
                     .font(.ui(T.sm, .medium))
@@ -110,6 +116,7 @@ public struct PopoverView: View {
                 Spacer(minLength: S.s2)
                 ValueText(lane: lane, size: T.md)
             }
+            .accessibilityHidden(true)
 
             // 8 pt, sem agulha. O reticulado sobrevive a 8 px — se não
             // sobrevivesse, o sistema inteiro cairia.
@@ -122,16 +129,22 @@ public struct PopoverView: View {
                     .font(.num(T.micro))
                     .tracking(0.03 * T.micro)
                     .foregroundStyle(p.ink3)
+                    .accessibilityHidden(true)   // a procedência já está na fala da pista
                 Spacer(minLength: S.s1)
                 if lane.certainty.hasInk {
                     Text(lane.displayReset ?? "")
                         .font(.num(T.micro))
                         .tracking(0.03 * T.micro)
                         .foregroundStyle(p.ink3)
+                        .accessibilityHidden(true)   // idem: "zera às 16:50" já foi dito
                 } else {
                     // Sem dado → o convite. Não é modal, não é badge vermelho,
                     // não é tour: fica no lugar onde a dor está, e some sozinho
                     // quando resolvido.
+                    //
+                    // É a única AÇÃO da linha, então é a única coisa daqui que o
+                    // VoiceOver ainda para. E ela diz o provedor: "conectar" sozinho,
+                    // fora da linha em que está, não é instrução — é adivinhação.
                     Button("conectar") { onConnect(lane.provider) }
                         .buttonStyle(.plain)
                         .font(.ui(T.xs))
@@ -139,6 +152,7 @@ public struct PopoverView: View {
                         .overlay(alignment: .bottom) {
                             Rectangle().fill(p.ember.opacity(0.35)).frame(height: 1).offset(y: 2)
                         }
+                        .accessibilityLabel("Conectar o \(lane.provider.displayName)")
                 }
             }
             .padding(.top, 6)
@@ -180,6 +194,8 @@ public struct PopoverView: View {
                     Text("ABRIR")
                         .font(.ui(T.micro, .medium))
                         .tracking(0.06 * T.micro)
+                    // O ⌘⏎ é lembrete de atalho, não conteúdo: dois glifos que o
+                    // VoiceOver leria como "command, return" no meio do rótulo.
                     Image(systemName: "command")
                         .font(.system(size: 8, weight: .medium))
                     Image(systemName: "return")
@@ -189,6 +205,7 @@ public struct PopoverView: View {
             }
             .buttonStyle(.plain)
             .fixedSize()
+            .accessibilityLabel("Abrir a janela do MyTokens")
 
             AppMenu(controls: controls)
         }
@@ -235,6 +252,18 @@ struct AppMenu: View {
                 }
             }
 
+            Divider()
+            // O aviso de 85% (UI-SPEC §7). Se o macOS barrou, o menu NÃO deixa um ✓ ligado
+            // fingindo que avisa — ele conta o que houve e abre onde se conserta. Mesma
+            // regra do "Abrir no login" logo abaixo: o menu nunca mostra um estado que mente.
+            if controls.notificationsBlocked {
+                Button("Avisos bloqueados no macOS…", action: controls.openNotificationSettings)
+            } else {
+                Button(action: controls.toggleNotifyAt85) {
+                    Label("Avisar em 85%", systemImage: controls.notifyAt85 ? "checkmark" : "")
+                }
+            }
+
             // Só aparece se o sistema souber responder. Um toggle que não sabe o próprio
             // estado é pior que toggle nenhum.
             if let liga = controls.launchesAtLogin {
@@ -263,6 +292,14 @@ struct AppMenu: View {
 //
 // Instrumento LIGADO, esperando. Não é spinner (spinner diz "estou travado"),
 // é um sinal de vida a 2,4 s — o mesmo ritmo de uma respiração calma.
+//
+// É o único movimento do app que não carrega um bit de dado — e por isso é o
+// único que o Reduce Motion pode matar inteiro. Sob Reduce Motion o `.pulse`
+// resolve pra `nil`: o `on` vira `true` na hora e o ponto fica ACESO, parado.
+// A informação (o instrumento está ligado) é a LUZ, não a oscilação dela.
+//
+// Pro VoiceOver ele não existe: quem diz "nada queimado ainda" é o veredito,
+// em palavra. Um ponto laranja de 7 px não tem o que dizer.
 
 struct EmptyPulse: View {
     @Environment(\.palette) private var p
@@ -273,8 +310,9 @@ struct EmptyPulse: View {
             .fill(p.ember)
             .frame(width: 7, height: 7)
             .opacity(on ? 1 : 0.25)
-            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: on)
+            .motion(.pulse, value: on)
             .onAppear { on = true }
+            .accessibilityHidden(true)
     }
 }
 

@@ -36,6 +36,10 @@ struct Hatch: View {
             }
         }
         .drawingGroup()   // uma camada só: a pista inteira vira uma textura
+        // A textura é um CANAL, não um conteúdo: ela diz "estimado" pro olho, e a
+        // frase da pista já diz "estimado" pro ouvido. Um elemento acessível aqui
+        // seria um retângulo sem nome no meio da leitura.
+        .accessibilityHidden(true)
     }
 }
 
@@ -61,5 +65,6 @@ struct DiagonalHatch: View {
             }
         }
         .drawingGroup()
+        .accessibilityHidden(true)   // ornamento: a faixa e o transbordo já estão na fala
     }
 }

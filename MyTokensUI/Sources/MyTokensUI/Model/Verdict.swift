@@ -140,6 +140,13 @@ public struct Verdict: Sendable, Equatable {
         f.dateFormat = "HH:mm"
         return f.string(from: d)
     }
+
+    /// O veredito dito em voz alta. O `**` é PESO — instrução pro olho. Pro ouvido
+    /// ele é ruído (o VoiceOver soletraria os asteriscos), então some. Nenhuma
+    /// palavra muda: a frase que o cego ouve é a MESMA que o vidente lê.
+    public var spoken: String {
+        "\(headline) \(detail.replacingOccurrences(of: "**", with: ""))"
+    }
 }
 
 extension Lane {
@@ -169,5 +176,157 @@ extension Lane {
         guard let s = slackPoints else { return nil }
         let sign = s >= 0 ? "+" : "−"
         return "\(sign)\(Int(abs(s).rounded())) pts"
+    }
+}
+
+// MARK: - A PISTA FALADA
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// A pista é a peça central do produto e, até aqui, ela era MUDA. Um usuário
+// cego abria o app e ouvia... nada — nem quanto queimou, nem quanto sobra.
+//
+// A regra que rege este bloco é a mesma do `Certainty`: a certeza TEM que
+// aparecer na leitura. Se a honestidade do app só existe pra quem enxerga o
+// reticulado, ela não é honestidade — é decoração. "Medido pelo provedor",
+// "estimado", "não sei" são os três canais visuais (textura, til, faixa)
+// traduzidos pro único canal que o VoiceOver tem: a frase.
+//
+// E o zero mentiroso morre aqui também: uma pista sem tinta NUNCA é lida como
+// "0%". Ela é lida como "não sei quanto da cota foi usada" — e vem com o
+// porquê. Ausência é ausência, em qualquer canal.
+//
+// O número é montado dos valores CRUS, nunca de `displayValue`: aquele string
+// carrega o `~` (que o VoiceOver soletraria como "til") e o `—` (que ele leria
+// como travessão). Marcas tipográficas não sobrevivem à travessia pro som — o
+// que sobrevive é a palavra.
+// ═══════════════════════════════════════════════════════════════════════════
+
+extension Lane {
+
+    /// A leitura completa da pista, em UMA fala: provedor, janela, quanto queimou,
+    /// com que certeza, quanto do TEMPO passou, e quando zera.
+    ///
+    /// É este texto — e só ele — que o VoiceOver diz ao parar sobre a pista. Os
+    /// rótulos ao redor (título, número, procedência) ficam escondidos: eles são a
+    /// mesma informação, e ouvi-la três vezes é pior que não ouvi-la.
+    public func accessibilityReading(now: Date = Date()) -> String {
+        var parts: [String] = ["\(provider.displayName), janela de \(windowLabel)."]
+
+        parts.append(spokenQuota)
+
+        // O relógio a gente SEMPRE sabe, mesmo sem a tinta — e por isso ele é dito
+        // até na pista ausente. Falta a tinta, não a pista: meia leitura honesta
+        // vale mais que um zero mentiroso.
+        if let nowFraction {
+            parts.append("Passaram \(Self.pct(nowFraction * 100)) do tempo da janela.")
+        }
+
+        if let reset = spokenReset(now: now) {
+            parts.append(reset)
+        }
+
+        return parts.joined(separator: " ")
+    }
+
+    /// Quanto queimou — e com que certeza. As duas coisas na mesma frase, porque
+    /// na tela elas também são a mesma coisa (a tinta e a textura dela).
+    private var spokenQuota: String {
+        guard let used, certainty.hasInk else {
+            // AUSENTE. Não é "0%", não é "zero", não é silêncio: é "não sei", com
+            // o motivo colado. Zero é um número, e número é uma afirmação.
+            var s = "Não sei quanto da cota foi usada: \(certainty.provenanceLabel())."
+            if let cap = capUSD {
+                // O que a gente sabe do Cursor sem credencial é o TETO, não o gasto.
+                // Dizer só o teto é honesto; deixá-lo implícito seria esconder metade.
+                s += " O crédito da janela é de \(Self.dollars(cap)) dólares."
+            }
+            return s
+        }
+
+        let over = used > 100 ? " Passou do teto." : ""
+
+        switch certainty {
+        case .measured(let at):
+            let when = at.map { " às \(Verdict.hm($0))" } ?? ""
+            return "Queimou \(spokenAmount(used)), número medido pelo provedor\(when).\(over)"
+
+        case .composite(let measuredUpTo, let at):
+            // A BARRA COMPOSTA dita: o fato, a hora do fato, e onde ele acaba.
+            // A costura é 1 px na tela; aqui ela é a palavra "até".
+            return "Queimou cerca de \(spokenAmount(used)): medido até "
+                 + "\(Self.pct(measuredUpTo)) às \(Verdict.hm(at)), o resto é estimado "
+                 + "do que ficou no disco.\(over)"
+
+        case .derived:
+            var s = "Queimou cerca de \(spokenAmount(used)), número estimado"
+            if case .derived(let lo, let hi) = certainty, let lo, let hi {
+                // A faixa é o que separa palpite honesto de chute. Se o core não a
+                // mandou, ela não é inventada — nem na tela, nem na fala.
+                s += ", entre \(Self.pct(lo)) e \(Self.pct(hi))"
+            }
+            return s + ".\(over)"
+
+        case .absent:
+            return ""   // já tratado no guard — inalcançável
+        }
+    }
+
+    /// "68% da cota" · "6,40 dólares dos 20 do crédito, 32% da cota".
+    /// 32% de um crédito em dólar e 32% de uma cota opaca não são a mesma coisa —
+    /// a fala carrega a mesma distinção que o número na tela carrega.
+    private func spokenAmount(_ used: Double) -> String {
+        switch unit {
+        case .percent:
+            return "\(Self.pct(used)) da cota"
+        case .usd:
+            guard let cap = capUSD else { return "\(Self.pct(used)) da cota" }
+            let capValue = (cap as NSDecimalNumber).doubleValue
+            let spent = used / 100 * capValue
+            return "\(Self.money(spent)) dólares dos \(Self.dollars(cap)) do crédito, "
+                 + "\(Self.pct(used)) da cota"
+        }
+    }
+
+    /// "Zera às 16:50." · "Zera sexta-feira às 09:12."
+    /// O `displayReset` da tela diz "zera 16:50" — cabe em 40 px, mas não é frase.
+    /// Aqui sobra tempo pra dizer o dia por extenso, e o ouvido agradece.
+    private func spokenReset(now: Date) -> String? {
+        guard let resetsAt else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pt_BR")
+        let sameDay = Calendar.current.isDate(resetsAt, inSameDayAs: now)
+        f.dateFormat = sameDay ? "'às' HH:mm" : "EEEE 'às' HH:mm"
+        return "Zera \(f.string(from: resetsAt))."
+    }
+
+    /// "+14 pts" vira "14 pontos de folga". O sinal é tipografia; a palavra é fala.
+    /// (O VoiceOver leria "−24" como "menos vinte e quatro" — correto e inútil:
+    /// menos vinte e quatro do quê?)
+    var spokenSlack: String? {
+        guard let s = slackPoints else { return nil }
+        let n = Int(abs(s).rounded())
+        return s >= 0
+            ? "\(n) pontos de folga: a cota anda mais devagar que o relógio"
+            : "\(n) pontos de aperto: a cota anda mais rápido que o relógio"
+    }
+
+    /// "0,86× a janela" → "0,86 vezes a janela". O `×` não é uma palavra.
+    var spokenPace: String? {
+        paceLabel?.replacingOccurrences(of: "×", with: " vezes")
+    }
+
+    // MARK: - Números que viram som
+
+    /// Percentual arredondado, do jeito que se fala: "68%".
+    private static func pct(_ v: Double) -> String { "\(Int(v.rounded()))%" }
+
+    /// "6,40" — vírgula decimal, que é como o pt-BR lê (e diz) dinheiro.
+    private static func money(_ v: Double) -> String {
+        String(format: "%.2f", v).replacingOccurrences(of: ".", with: ",")
+    }
+
+    /// O teto em dólar, sem centavos: "20". Cotas de crédito são redondas.
+    private static func dollars(_ d: Decimal) -> String {
+        "\(Int((d as NSDecimalNumber).doubleValue.rounded()))"
     }
 }

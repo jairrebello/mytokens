@@ -57,7 +57,8 @@ public struct ValueText: View {
                 .font(.num(size, weight))
                 .foregroundStyle(color)
                 .tracking(tracking)
-                .contentTransition(.numericText())   // o número TROCA, não pisca
+                .numericValueTransition()   // o número TROCA, não pisca — e não rola
+                                            // os dígitos quando o sistema pede calma
 
             if let suffix = lane.displayUnitSuffix {
                 // "US$ 6,40 / 20" — o Cursor mede em dólar de compute, não em %.
@@ -128,11 +129,29 @@ public struct ProvenanceLegend: View {
                 }
             }
         }
+        // A legenda é uma peça só, e ela é o CONTRATO — não uma fileira de
+        // retângulos anônimos. Pro VoiceOver, a mesma promessa em uma frase: cada
+        // pista já disse "medido" ou "estimado", isto explica que a distinção é
+        // deliberada e permanente.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+
+    /// "Legenda das texturas na tela: medido, inferido." Só as que estão à vista —
+    /// ensinar a ler uma textura que ninguém está mostrando é ruído, no olho e no ouvido.
+    private var spoken: String {
+        var kinds: [String] = []
+        if shows(.measured) { kinds.append("medido") }
+        if shows(.inferred) { kinds.append("inferido") }
+        if shows(.absent)   { kinds.append("sem dado") }
+        guard !kinds.isEmpty else { return "" }
+        return "Legenda das texturas na tela: \(kinds.joined(separator: ", "))."
     }
 
     private func item(_ label: String, @ViewBuilder swatch: () -> some View) -> some View {
         HStack(spacing: 5) {
             swatch()
+                .accessibilityHidden(true)   // a amostra da textura é puro ornamento
             Text(label.uppercased())
                 .font(.ui(T.micro, .medium))
                 .tracking(0.05 * T.micro)
