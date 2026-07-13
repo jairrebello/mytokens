@@ -16,15 +16,19 @@ public struct PopoverView: View {
     public let snapshot: Dashboard
     public var onOpenWindow: () -> Void = {}
     public var onConnect: (Provider) -> Void = { _ in }
+    /// Pausar / abrir no login / sair. Sem isto, o app não tem porta de saída.
+    public var controls = AppControls()
 
     public init(
         snapshot: Dashboard,
         onOpenWindow: @escaping () -> Void = {},
-        onConnect: @escaping (Provider) -> Void = { _ in }
+        onConnect: @escaping (Provider) -> Void = { _ in },
+        controls: AppControls = AppControls()
     ) {
         self.snapshot = snapshot
         self.onOpenWindow = onOpenWindow
         self.onConnect = onConnect
+        self.controls = controls
     }
 
     private var verdict: Verdict { .of(snapshot) }
@@ -157,9 +161,13 @@ public struct PopoverView: View {
     // MARK: - Rodapé: a procedência é permanente
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: S.s2) {
+            // A legenda da procedência é INFORMAÇÃO — ela não encolhe pra caber um botão.
+            // Sem o fixedSize, o ⋯ roubava largura e "MEDIDO" quebrava em "MEDID/O".
             ProvenanceLegend()
-            Spacer()
+                .fixedSize()
+                .layoutPriority(1)
+            Spacer(minLength: 0)
             Button(action: onOpenWindow) {
                 HStack(spacing: 4) {
                     Text("ABRIR")
@@ -173,6 +181,9 @@ public struct PopoverView: View {
                 .foregroundStyle(p.ink3)
             }
             .buttonStyle(.plain)
+            .fixedSize()
+
+            AppMenu(controls: controls)
         }
         .padding(.horizontal, S.s4)
         .padding(.vertical, 9)
@@ -180,6 +191,47 @@ public struct PopoverView: View {
         .overlay(alignment: .top) {
             Rectangle().fill(p.line).frame(height: 1)
         }
+    }
+}
+
+// MARK: - Os controles do app
+//
+// Um app de barra de menu SEM SAÍDA VISÍVEL é um app que se instala e não se desinstala.
+// Aqui é a única porta: pausar, abrir no login, sair.
+//
+// Ele mora no rodapé — a faixa que já é do app, não do dado. Peso `ink3`, o mesmo do
+// "ABRIR" ao lado: é ferramenta, não informação. Nada aqui compete com a pista.
+
+struct AppMenu: View {
+    @Environment(\.palette) private var p
+    let controls: AppControls
+
+    var body: some View {
+        Menu {
+            Button(controls.isPaused ? "Retomar leitura" : "Pausar leitura",
+                   action: controls.togglePause)
+
+            // Só aparece se o sistema souber responder. Um toggle que não sabe o próprio
+            // estado é pior que toggle nenhum.
+            if let liga = controls.launchesAtLogin {
+                Divider()
+                Button(action: controls.toggleLaunchAtLogin) {
+                    Label("Abrir no login", systemImage: liga ? "checkmark" : "")
+                }
+            }
+
+            Divider()
+            Button("Sair do MyTokens", action: controls.quit)
+                .keyboardShortcut("q")
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(p.ink3)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: 14)
+        .accessibilityLabel("Controles do MyTokens")
     }
 }
 

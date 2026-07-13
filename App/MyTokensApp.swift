@@ -60,7 +60,8 @@ private struct PopoverScene: View {
         PopoverView(
             snapshot: model.dashboard,
             onOpenWindow: abrir,
-            onConnect: model.connect
+            onConnect: model.connect,
+            controls: model.controls
         )
         // O rodapé do popover ANUNCIA `⌘⏎`. Um atalho anunciado e não implementado é uma
         // mentira pequena, e este app não pode se dar ao luxo nem das pequenas.

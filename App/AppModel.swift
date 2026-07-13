@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import ServiceManagement
 import MyTokensCore
 import MyTokensUI
 
@@ -183,6 +184,57 @@ final class AppModel {
     func togglePause() {
         isPaused.toggle()
         if !isPaused { scheduleRefresh(delay: .zero) }
+    }
+
+    // MARK: - Os controles do app
+
+    /// O que a `PopoverView` precisa pra desenhar o menu do rodapé.
+    var controls: AppControls {
+        AppControls(
+            isPaused: isPaused,
+            launchesAtLogin: launchesAtLogin,
+            togglePause: { [weak self] in self?.togglePause() },
+            toggleLaunchAtLogin: { [weak self] in self?.toggleLaunchAtLogin() },
+            quit: { NSApplication.shared.terminate(nil) }
+        )
+    }
+
+    /// `nil` = o sistema não sabe dizer, e aí a opção SOME do menu em vez de mentir.
+    ///
+    /// `.notFound` acontece de verdade: um app rodando de dentro do DerivedData não é um
+    /// app instalado, e o macOS se recusa a registrá-lo pro login. Mostrar um toggle que
+    /// falha em silêncio seria pior que não mostrar nada.
+    private var launchesAtLogin: Bool? {
+        switch SMAppService.mainApp.status {
+        case .enabled: true
+        case .notRegistered: false
+        case .requiresApproval: true   // registrado; o usuário é que barrou em Ajustes
+        case .notFound: nil
+        @unknown default: nil
+        }
+    }
+
+    private func toggleLaunchAtLogin() {
+        do {
+            if launchesAtLogin == true {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            // Falhou de verdade (app fora de /Applications, permissão negada). Diz o que
+            // houve — engolir o erro deixaria um toggle que não toggla e ninguém explica.
+            let a = NSAlert()
+            a.messageText = "Não consegui mexer no início automático."
+            a.informativeText = """
+                \(error.localizedDescription)
+
+                O macOS só registra apps INSTALADOS. Se o MyTokens está rodando direto da \
+                pasta de build do Xcode, mova-o para /Applications primeiro.
+                """
+            NSApp.activate(ignoringOtherApps: true)
+            a.runModal()
+        }
     }
 
     // MARK: - o ícone
