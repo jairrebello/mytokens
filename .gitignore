@@ -1,0 +1,40 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# electron/tauri packaging
+release/
+src-tauri/target/
+
+# os
+.DS_Store
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# env / secrets — NUNCA versionar token
+.env
+.env.*
+*.pem
+*.key
+**/*token*
+**/*secret*
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# test/coverage
+coverage/
+
+# maestri workspace metadata (não é parte do produto)
+.maestri/
