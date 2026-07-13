@@ -69,6 +69,11 @@ public struct ValueText: View {
                     .foregroundStyle(p.ink3)
             }
         }
+        // O valor é o DADO — ele NUNCA trunca. "US$ 3,29" é mais largo que "36%", e sem
+        // isto o layout cortava em "US$ 3..." (visto no tema Terminal). Quem cede largura
+        // é o título da pista, não o número medido. Um dado com reticências é um dado que
+        // mentiu por omissão.
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

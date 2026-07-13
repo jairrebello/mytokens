@@ -106,6 +106,7 @@ public struct PopoverView: View {
                 Text(lane.title)
                     .font(.ui(T.sm, .medium))
                     .foregroundStyle(p.ink0)
+                    .lineLimit(1)          // o TÍTULO cede, não o dado
                 Spacer(minLength: S.s2)
                 ValueText(lane: lane, size: T.md)
             }
