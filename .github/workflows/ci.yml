@@ -1,0 +1,93 @@
+# CI do MyTokens — build e teste. Nada além disso.
+#
+# POR QUE NÃO TEM ASSINATURA AQUI: a release assinada é LOCAL, e continua local até
+# existir uma conta Apple Developer paga (docs/DISTRIBUICAO.md). Não há secret de
+# assinatura neste workflow porque não há certificado pra guardar em secret — e inventar
+# `secrets.APPLE_CERT` vazio só pra "ficar pronto" produziria um pipeline que falha por
+# motivo errado ou, pior, publica artefato ad-hoc que o Gatekeeper barra. CI aqui prova
+# que o código compila e que os testes passam. Release quem faz é `scripts/release.sh`,
+# na máquina do Jair, com o certificado no chaveiro dela.
+#
+# SOBRE OS TESTES DE DISCO REAL (MyTokensCore/Tests/.../RealDiskTests.swift): eles leem o
+# ~/.claude e o ~/.codex DA MÁQUINA. No runner do GitHub esses diretórios não existem, e
+# as suítes se desativam sozinhas — `.enabled(if: hasClaudeDisk)` / `.enabled(if:
+# hasCodexDisk)`, que já estavam lá antes deste CI. Ninguém foi desligado pra caber no CI.
+# O passo "disco real" abaixo DIZ EM VOZ ALTA quais suítes vão pular e por quê, pra que o
+# verde do CI não seja lido como "o core foi validado contra dado real" — ele não foi.
+# Essa validação só acontece na máquina de quem tem o disco: `swift test` local.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: SPM — build + test (${{ matrix.package }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [MyTokensCore, MyTokensUI]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ferramentas (o que exatamente compilou isto)
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Disco real — o que vai pular aqui, e por quê
+        run: |
+          echo "As suítes de disco real leem o histórico REAL de quem roda o teste."
+          echo "Neste runner:"
+          for d in "$HOME/.claude/projects" "$HOME/.codex"; do
+            if [ -d "$d" ]; then echo "  presente: $d"; else echo "  AUSENTE:  $d"; fi
+          done
+          echo
+          echo "Ausente => @Suite(.enabled(if:)) desativa 'Disco real — Claude' e"
+          echo "'Disco real — Codex'. O verde deste CI NÃO cobre esses testes."
+          echo "Quem os roda é o 'swift test' na máquina do dono do disco."
+
+      - name: swift build
+        working-directory: ${{ matrix.package }}
+        run: swift build -v
+
+      - name: swift test
+        working-directory: ${{ matrix.package }}
+        run: swift test
+
+  app:
+    name: Xcode — MyTokens (Release)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ad-hoc, como no dia a dia: o projeto tem CODE_SIGN_IDENTITY = "-" e não depende de
+      # certificado nenhum pra COMPILAR. Só a distribuição depende. Nada aqui é sobrescrito.
+      - name: xcodebuild Release
+        run: |
+          xcodebuild -project MyTokens.xcodeproj \
+                     -scheme MyTokens \
+                     -configuration Release \
+                     -derivedDataPath build/ci \
+                     build
+
+  scripts:
+    name: Scripts — sintaxe
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n em tudo que é executável
+        run: |
+          for s in scripts/*.sh; do
+            echo "-- $s"
+            bash -n "$s"
+          done
