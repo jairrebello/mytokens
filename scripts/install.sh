@@ -20,16 +20,34 @@ cd "$(dirname "$0")/.."
 DEST="/Applications/MyTokens.app"
 
 echo "==> compilando (Release)"
+# `xcodebuild | grep … || true` devolve o status do GREP, não o do xcodebuild — um
+# BUILD FAILED passava batido aqui. E o `[ -d "$BUILT" ]` lá embaixo NÃO pegava: quando a
+# compilação quebra, o xcodebuild deixa pra trás o esqueleto do bundle (Info.plist no
+# lugar, Contents/MacOS/ VAZIO). O teste de diretório passava e o install.sh copiava por
+# cima do /Applications/MyTokens.app que funcionava uma CASCA SEM BINÁRIO — trocando um
+# app bom por um que não abre, e dizendo "instalado". Peguei isto rodando o release.sh.
+set +e
 xcodebuild -project MyTokens.xcodeproj \
            -scheme MyTokens \
            -configuration Release \
-           build 2>&1 | grep -E "error:|warning:|BUILD" || true
+           build 2>&1 | grep -E "error:|warning:|BUILD"
+BUILD_STATUS=${PIPESTATUS[0]}
+set -e
+[ "$BUILD_STATUS" -eq 0 ] || {
+  echo "✗ BUILD FAILED (xcodebuild saiu $BUILD_STATUS) — nada foi instalado."
+  echo "  O que está em /Applications continua intacto."
+  exit 1
+}
 
 BUILT="$(xcodebuild -project MyTokens.xcodeproj -scheme MyTokens -configuration Release \
           -showBuildSettings 2>/dev/null \
           | awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $2; exit}')/MyTokens.app"
 
 [ -d "$BUILT" ] || { echo "✗ não achei o app em $BUILT"; exit 1; }
+[ -x "$BUILT/Contents/MacOS/MyTokens" ] || {
+  echo "✗ $BUILT não tem executável dentro — é casca, não app. Nada foi instalado."
+  exit 1
+}
 
 # O app rodando segura o próprio bundle. Fecha antes de trocar o binário debaixo dele.
 if pgrep -f "MyTokens.app/Contents/MacOS/MyTokens" > /dev/null; then
