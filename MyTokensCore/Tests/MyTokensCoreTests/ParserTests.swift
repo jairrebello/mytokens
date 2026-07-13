@@ -262,7 +262,107 @@ struct ParserTests {
     }
 }
 
+// MARK: - Dedup: QUAL ocorrência sobrevive
+
+@Suite("Dedup — a mesma mensagem, escrita várias vezes")
+struct DedupTests {
+
+    /// A ARMADILHA QUE CUSTAVA 9,8% DO OUTPUT.
+    ///
+    /// O Claude Code reescreve a MESMA mensagem (mesmo requestId, mesmo message.id, no
+    /// mesmo arquivo) enquanto ela é gerada. O `output_tokens` cresce a cada reescrita.
+    /// Ficar com a PRIMEIRA ocorrência congela a mensagem no começo dela.
+    ///
+    /// No disco real do Jair (13/07): 7.360 chaves afetadas, 3.477.980 tokens de output
+    /// a menos. E output é o bucket CARO — Opus cobra US$ 75/M contra US$ 15/M do input.
+    @Test("streaming: fica a ocorrência de MAIOR total, não a primeira")
+    func streamingKeepsTheLargest() async throws {
+        let dir = try TempDir()
+        try [
+            claudeAssistant(req: "req_1", msg: "msg_1", output: 5),
+            claudeAssistant(req: "req_1", msg: "msg_1", output: 5),
+            claudeAssistant(req: "req_1", msg: "msg_1", output: 330),  // a mensagem pronta
+        ].joined(separator: "\n").appending("\n")
+            .write(to: dir.url.appending(path: "s.jsonl"), atomically: true, encoding: .utf8)
+
+        let r = try await ClaudeCodeCollector(
+            root: dir.url, pricing: try PricingTable.bundled()
+        ).collectDetailed()
+
+        #expect(r.events.count == 1)                 // é UMA request, não três
+        #expect(r.events.first?.tokens.output == 330)  // e ela custou 330, não 5
+    }
+
+    /// E por que não simplesmente a ÚLTIMA, que seria o óbvio pro caso acima?
+    /// Porque existe registro TRUNCADO: no disco real, uma chave (em 46.518) tem a última
+    /// ocorrência ZERADA em todos os buckets. "Última" jogaria 271 mil tokens fora.
+    /// "Maior total" acerta os dois casos — e é a única regra que não depende da ordem
+    /// em que os arquivos foram lidos.
+    @Test("registro truncado no fim: a última é ZERO, e zero não é a verdade")
+    func truncatedLastIsIgnored() async throws {
+        let dir = try TempDir()
+        try [
+            claudeAssistant(req: "req_2", msg: "msg_2", output: 3, cacheRead: 271_165),
+            claudeAssistant(req: "req_2", msg: "msg_2", output: 0, cacheRead: 0),
+        ].joined(separator: "\n").appending("\n")
+            .write(to: dir.url.appending(path: "s.jsonl"), atomically: true, encoding: .utf8)
+
+        let r = try await ClaudeCodeCollector(
+            root: dir.url, pricing: try PricingTable.bundled()
+        ).collectDetailed()
+
+        #expect(r.events.count == 1)
+        #expect(r.events.first?.tokens.cacheRead == 271_165)  // e NÃO 0
+    }
+
+    /// A consequência mais traiçoeira da regra antiga: "primeira" depende da ordem do
+    /// readdir. Um arquivo novo entrando reordenava a varredura e mudava o total de um
+    /// dia ANTIGO — sem ninguém ter gasto nada. O total tem que ser função do CONTEÚDO
+    /// do disco, não da ordem em que ele foi lido.
+    @Test("o total não depende da ordem dos arquivos")
+    func totalIsOrderIndependent() async throws {
+        func total(reverse: Bool) async throws -> Int {
+            let dir = try TempDir()
+            // a mesma request, meia num arquivo e completa no outro.
+            let a = claudeAssistant(req: "req_3", msg: "msg_3", output: 7) + "\n"
+            let b = claudeAssistant(req: "req_3", msg: "msg_3", output: 900) + "\n"
+            // os nomes decidem a ordem do enumerator; invertê-los inverte a varredura.
+            try (reverse ? b : a).write(
+                to: dir.url.appending(path: "1.jsonl"), atomically: true, encoding: .utf8)
+            try (reverse ? a : b).write(
+                to: dir.url.appending(path: "2.jsonl"), atomically: true, encoding: .utf8)
+
+            let r = try await ClaudeCodeCollector(
+                root: dir.url, pricing: try PricingTable.bundled()
+            ).collectDetailed()
+            return r.events.reduce(0) { $0 + $1.tokens.output }
+        }
+
+        #expect(try await total(reverse: false) == 900)
+        #expect(try await total(reverse: true) == 900)
+    }
+}
+
 // MARK: - Helpers
+
+/// Uma linha `assistant` do disco do Claude, com o mínimo que o parser exige.
+func claudeAssistant(
+    req: String,
+    msg: String,
+    output: Int,
+    input: Int = 10,
+    cacheWrite: Int = 0,
+    cacheRead: Int = 0,
+    ts: String = "2026-07-01T12:00:00.000Z",
+    model: String = "claude-opus-4-8"
+) -> String {
+    """
+    {"type":"assistant","timestamp":"\(ts)","requestId":"\(req)","sessionId":"sess",\
+    "message":{"id":"\(msg)","model":"\(model)","usage":{"input_tokens":\(input),\
+    "output_tokens":\(output),"cache_creation_input_tokens":\(cacheWrite),\
+    "cache_read_input_tokens":\(cacheRead)}}}
+    """
+}
 
 func codexTokenCount(ts: String, input: Int, cached: Int, output: Int) -> String {
     """

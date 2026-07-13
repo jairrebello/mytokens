@@ -266,36 +266,61 @@ public actor ClaudeCodeCollector: UsageCollector {
         diag.files = files
 
         // DEDUP GLOBAL por requestId. É aqui que 8,3 bilhões de tokens fantasma morrem.
-        var seen = Set<String>()
-        seen.reserveCapacity(64_000)
-        var events: [UsageEvent] = []
-        events.reserveCapacity(64_000)
+        //
+        // QUAL ocorrência fica? A de MAIOR TOTAL. Não é detalhe — é 9,8% do output.
+        //
+        // O Claude Code reescreve a MESMA mensagem (mesmo requestId, mesmo message.id, no
+        // mesmo arquivo) enquanto ela é gerada, e o `output_tokens` CRESCE a cada reescrita:
+        //     out=5 → out=5 → out=330
+        // Ficar com a PRIMEIRA congela a mensagem no começo dela. Medido no disco real:
+        // 7.360 chaves afetadas, 3.477.980 tokens de output perdidos — e output é o bucket
+        // CARO (Opus: US$ 75/M contra US$ 15/M do input). O custo saía subestimado.
+        //
+        // E por que não a ÚLTIMA, que seria o óbvio? Porque existe registro TRUNCADO: uma
+        // chave (em 46.518) tem a última ocorrência ZERADA em todos os buckets. "Última"
+        // jogaria 271 mil tokens fora naquele caso. "Maior total" acerta os dois.
+        //
+        // De quebra, é a única regra DETERMINÍSTICA: "primeira" depende da ordem do
+        // readdir, então o total de um dia ANTIGO mudava só porque um arquivo novo entrou
+        // e reordenou a varredura. Conferido no disco: zero empate ambíguo (mesmo total,
+        // buckets diferentes), então a escolha nunca é sorteio.
+        var best: [String: ClaudeRow] = [:]
+        best.reserveCapacity(64_000)
 
         for (_, rows) in digests {
             for row in rows {
                 diag.assistantRows += 1
                 diag.rawBuckets += row.tokens
 
-                guard seen.insert(row.dedupKey).inserted else { continue }
-                diag.dedupBuckets += row.tokens
-
-                let cost = pricing.cost(model: row.model, tokens: row.tokens)
-                if cost == nil, row.tokens.total > 0 { diag.unpricedModels.insert(row.model) }
-
-                events.append(UsageEvent(
-                    id: row.dedupKey,
-                    provider: .claudeCode,
-                    ts: row.ts,
-                    sessionId: row.sessionId,
-                    model: row.model,
-                    project: row.project,
-                    tokens: row.tokens,
-                    costUSD: cost ?? 0
-                ))
+                if let atual = best[row.dedupKey], atual.tokens.total >= row.tokens.total {
+                    continue
+                }
+                best[row.dedupKey] = row
             }
         }
 
-        diag.uniqueRequestIds = seen.count
+        var events: [UsageEvent] = []
+        events.reserveCapacity(best.count)
+
+        for row in best.values {
+            diag.dedupBuckets += row.tokens
+
+            let cost = pricing.cost(model: row.model, tokens: row.tokens)
+            if cost == nil, row.tokens.total > 0 { diag.unpricedModels.insert(row.model) }
+
+            events.append(UsageEvent(
+                id: row.dedupKey,
+                provider: .claudeCode,
+                ts: row.ts,
+                sessionId: row.sessionId,
+                model: row.model,
+                project: row.project,
+                tokens: row.tokens,
+                costUSD: cost ?? 0
+            ))
+        }
+
+        diag.uniqueRequestIds = best.count
         diag.rawTokens = diag.rawBuckets.total
         diag.dedupTokens = diag.dedupBuckets.total
 

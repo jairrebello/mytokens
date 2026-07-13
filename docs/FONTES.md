@@ -190,6 +190,37 @@ requestId: req_011CckoEVTN5egiQQFgTYCFS  -> 4 linhas NO MESMO ARQUIVO
 
 Uma chamada de API. Cobrada uma vez. Gravada 4 vezes. Somar linha a linha conta 4x.
 
+### 2.2.1 ⚠️ MAS as cópias NEM SEMPRE são idênticas — e a escolha vale 9,8% do output
+
+O "usage idêntico nas 4" acima é verdade na **maioria** das chaves, e é uma armadilha
+acreditar que é verdade em **todas**. Medido em 2026-07-13 (46.518 chaves):
+
+**7.360 chaves têm ocorrências com `usage` DIFERENTE entre si.** O padrão:
+
+```
+req_011CcUamzpFJZqbnVY5juTr3   (mesmo message.id, MESMO arquivo)
+   in=15976  out=  5   cw=4172  cr=6053
+   in=15976  out=  5   cw=4172  cr=6053
+   in=15976  out=330   cw=4172  cr=6053     <- a mensagem PRONTA
+```
+
+É **streaming**: o Claude Code reescreve a mesma mensagem enquanto ela é gerada, e o
+`output_tokens` **cresce**. Input e cache ficam parados; só o output anda.
+
+**Regra: fica a ocorrência de MAIOR TOTAL.** As três alternativas e o preço de cada uma:
+
+| regra | o que acontece |
+|---|---|
+| **primeira** (o que o core fazia) | congela a mensagem no começo. **−3.477.980 tokens de output (−9,8%)**, e output é o bucket CARO (Opus: US$ 75/M vs US$ 15/M do input). E é **não-determinística**: "primeira" depende da ordem do `readdir`, então o total de um dia ANTIGO mudava só porque um arquivo novo entrou e reordenou a varredura |
+| **última** | quebra no registro **truncado**: 1 chave em 46.518 tem a última ocorrência **zerada em todos os buckets**. Jogaria 271 mil tokens fora |
+| **maior total** ✅ | acerta os dois casos. Determinística: **zero empate ambíguo** (mesmo total, buckets diferentes) no disco inteiro |
+
+O impacto no total geral é pequeno (**+0,05%**, porque `cache_read` domina o volume), mas
+no **custo** não é — o output é onde o dinheiro está.
+
+Implementado nos dois lados, e é o que o teste `RealDiskTests` confere: `ClaudeCodeCollector.build`
+(Swift) e `scan-claude.ts` (TS) têm que concordar sobre o mesmo disco.
+
 ### 2.3 O NÚMERO
 
 `bun scripts/probe/scan-claude.ts` sobre **6.224 arquivos / 93.401 linhas assistant**:

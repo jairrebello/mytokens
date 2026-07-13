@@ -174,6 +174,9 @@ async function main() {
   const seenMsg = new Set<string>();
   const seenReqMsg = new Set<string>();
 
+  // chave -> a ocorrência ESCOLHIDA (a de maior total). Ver o bloco de dedup abaixo.
+  const bestReq = new Map<string, { usage: Usage; day: string; model: string }>();
+
   // requestId -> quantos arquivos distintos o contêm (prova do resume/branch)
   const reqFiles = new Map<string, Set<string>>();
 
@@ -231,17 +234,21 @@ async function main() {
         // --- dedup por requestId ---
         // linha sem requestId NÃO pode ser descartada: é gasto real (ver FONTES.md).
         // Fallback: chave = message.id; se nem isso, chave sintética única.
+        //
+        // FICA A OCORRÊNCIA DE MAIOR TOTAL, não a primeira. O Claude Code reescreve a
+        // MESMA mensagem (mesmo requestId, mesmo message.id, mesmo arquivo) enquanto ela
+        // é gerada, e o output_tokens CRESCE: out=5 → out=5 → out=330. Ficar com a
+        // primeira congela a mensagem no começo — 7.360 chaves, 3.477.980 tokens de
+        // output a menos, e output é o bucket caro.
+        // "Última" também não serve: existe registro TRUNCADO (uma chave tem a última
+        // ocorrência zerada em tudo). "Maior total" acerta os dois, e é a única regra que
+        // não depende da ordem de leitura dos arquivos.
         const kReq =
           r.requestId ?? (r.messageId ? `msg:${r.messageId}` : `row:${rowCount}`);
-        if (!seenReq.has(kReq)) {
-          seenReq.add(kReq);
-          Object.assign(dedupReq, add(dedupReq, r.usage));
-
-          byModelDedup.set(
-            r.model,
-            add(byModelDedup.get(r.model) ?? ZERO(), r.usage),
-          );
-          bump(byDayDedup, day, r.model, r.usage);
+        seenReq.add(kReq);
+        const anterior = bestReq.get(kReq);
+        if (!anterior || total(r.usage) > total(anterior.usage)) {
+          bestReq.set(kReq, { usage: r.usage, day, model: r.model });
         }
 
         // --- dedup por message.id ---
@@ -262,6 +269,13 @@ async function main() {
     } catch (e) {
       process.stderr.write(`  ERRO ${file}: ${e}\n`);
     }
+  }
+
+  // Só AGORA dá pra somar o dedup: qual ocorrência vale só se sabe depois de ver todas.
+  for (const { usage, day, model } of bestReq.values()) {
+    Object.assign(dedupReq, add(dedupReq, usage));
+    byModelDedup.set(model, add(byModelDedup.get(model) ?? ZERO(), usage));
+    bump(byDayDedup, day, model, usage);
   }
 
   // Quantos requestIds aparecem em mais de um arquivo? Isso É o resume/branch.
