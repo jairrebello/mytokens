@@ -260,6 +260,42 @@ struct ParserTests {
         let r = ClaudeRateLimitReader(url: dir.url.appending(path: "nao-existe.json"))
         #expect(r.read().isEmpty)
     }
+
+    /// JANELA VENCIDA SOME. Não vira 0%, não vira o último valor: SOME.
+    ///
+    /// Esta regra existia nos dois collectors e não tinha UM teste — o tipo de coisa que
+    /// morre num refactor sem ninguém notar, e que ninguém percebe na tela, porque "0%"
+    /// parece um número perfeitamente saudável.
+    ///
+    /// E o risco é REAL, não teórico: nesta máquina o rollout mais novo do Codex é de
+    /// 18/05, e os `resets_at` dele venceram em 19/05 e 23/05 — oito semanas atrás. O
+    /// `used_percent: 1.0` que está gravado ali é um FÓSSIL. Mostrá-lo seria dizer ao
+    /// usuário "você usou 1% da sua semana" sobre uma semana que acabou em maio.
+    @Test("janela VENCIDA some — um bloco morto não vira 0%")
+    func expiredWindowDisappears() throws {
+        let ontem = Date().addingTimeInterval(-24 * 3600)
+        let amanha = Date().addingTimeInterval(24 * 3600)
+
+        // Claude: o snapshot do hook envelheceu.
+        let snap = ClaudeRateLimitSnapshot(
+            capturedAt: ontem,
+            fiveHour: .init(usedPercentage: 87, resetsAt: ontem.timeIntervalSince1970),
+            sevenDay: .init(usedPercentage: 40, resetsAt: amanha.timeIntervalSince1970)
+        )
+        let claude = ClaudeRateLimitReader.windows(from: snap, now: Date())
+        #expect(claude.count == 1, "a de 5 h venceu e tinha que sumir")
+        #expect(claude.first?.id == "claude-7d")
+        #expect(!claude.contains { $0.usedPercent == 0 }, "vencida virou zero — é a mentira")
+
+        // Codex: o rollout envelheceu (é o caso REAL desta máquina).
+        let fossil = CodexRateSnapshot(
+            ts: ontem,
+            planType: "plus",
+            fiveHour: CodexWindow(usedPercent: 1, windowMinutes: 300, resetsAt: ontem),
+            sevenDay: CodexWindow(usedPercent: 20, windowMinutes: 10_080, resetsAt: ontem)
+        )
+        #expect(CodexCollector.windows(from: fossil, now: Date()).isEmpty)
+    }
 }
 
 // MARK: - Dedup: QUAL ocorrência sobrevive

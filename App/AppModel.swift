@@ -169,13 +169,16 @@ final class AppModel {
             )
         case .cursor:
             (
-                "O Cursor ainda não foi decifrado.",
+                "O Cursor não guarda isso no seu computador.",
                 """
-                O Cursor guarda o uso num banco SQLite \
-                (~/.cursor/ai-tracking/ai-code-tracking.db) cujo schema ninguém provou ainda.
+                Fui atrás. O banco que ele mantém \
+                (~/.cursor/ai-tracking/ai-code-tracking.db) tem 33 mil registros e NENHUM \
+                token: ele rastreia AUTORIA DE CÓDIGO — quantas linhas a IA escreveu contra \
+                quantas você escreveu. Não é cota, é estatística de digitação.
 
-                Eu poderia chutar. Prefiro não: um número errado aqui é pior que nenhum, \
-                porque você acreditaria nele.
+                Gasto e restante do Cursor só existem no servidor dele. Sem rede e sem \
+                credencial, não há o que ler — e eu prefiro dizer isso a inventar um número \
+                que você acreditaria.
                 """
             )
         }
