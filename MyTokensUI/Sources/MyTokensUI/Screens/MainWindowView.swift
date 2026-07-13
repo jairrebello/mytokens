@@ -148,10 +148,15 @@ public struct MainWindowView: View {
                 .font(.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
-                .frame(width: 150, alignment: .trailing)
+                .frame(width: Self.valueColumn, alignment: .trailing)
         }
         .padding(.bottom, S.s4)
     }
+
+    /// A coluna do número, larga o bastante pro PIOR caso: "US$ 18,40 / 20" em 26 pt mono.
+    /// Fixa (não por-linha) pra as pistas alinharem — começam e terminam no mesmo x. A
+    /// janela tem 960 px; os 40 px a mais saem da pista, que tem folga de sobra.
+    static let valueColumn: CGFloat = 190
 
     private func benchRow(_ lane: Lane) -> some View {
         HStack(alignment: .center, spacing: S.s4) {
@@ -192,7 +197,7 @@ public struct MainWindowView: View {
                     }
                 }
             }
-            .frame(width: 150, alignment: .trailing)
+            .frame(width: Self.valueColumn, alignment: .trailing)
         }
         .padding(.vertical, S.s5)
         .overlay(alignment: .top) {

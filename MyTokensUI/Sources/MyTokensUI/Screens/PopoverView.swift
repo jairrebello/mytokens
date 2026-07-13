@@ -218,9 +218,15 @@ struct AppMenu: View {
             Button(controls.isPaused ? "Retomar leitura" : "Pausar leitura",
                    action: controls.togglePause)
 
-            // O tema é a única PREFERÊNCIA do app — tudo o mais é significado. Submenu com
-            // marca no ativo: escolha, não interruptor.
+            // Escolhas do usuário, não interruptores: submenu com marca no ativo.
             Divider()
+            Menu("Mostrar na barra") {
+                ForEach(MenuBarStyle.allCases) { s in
+                    Button(action: { controls.setMenuBarStyle(s) }) {
+                        Label(s.label, systemImage: s == controls.menuBarStyle ? "checkmark" : "")
+                    }
+                }
+            }
             Menu("Tema") {
                 ForEach(Theme.allCases) { t in
                     Button(action: { controls.setTheme(t) }) {

@@ -18,6 +18,12 @@ struct MyTokensApp: App {
             // Template image: só o alfa importa, o macOS tinge sozinho.
             // Dark e light saem de graça — e a cor deixa de ser uma tentação de design.
             Image(nsImage: StatusIcon.image(for: model.iconState))
+            // O texto ao lado, se o usuário escolheu um estilo. Vazio (só ícone) não
+            // renderiza Text nenhum — a barra fica idêntica a antes.
+            let barText = model.menuBarText
+            if !barText.isEmpty {
+                Text(barText)
+            }
         }
         // .window, não .menu: SwiftUI de verdade lá dentro. É onde o Vitral trabalha.
         .menuBarExtraStyle(.window)

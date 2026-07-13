@@ -28,6 +28,8 @@ final class AppModel {
     private(set) var isPaused = false
     /// O tema escolhido. Muda a tela na hora e sobrevive ao relaunch (persistido).
     private(set) var theme: Theme = ThemeStore.current
+    /// O que a barra mostra ao lado da proveta. Persistido.
+    private(set) var menuBarStyle: MenuBarStyle = MenuBarStyleStore.current
     /// Quantas vezes o DISCO nos acordou. É a prova, em QA, de que isto é evento e não polling.
     private(set) var wakeCount = 0
     /// Se o motor nem subiu (ex.: pricing.json corrompido), a tela DIZ isso.
@@ -223,9 +225,11 @@ final class AppModel {
             isPaused: isPaused,
             launchesAtLogin: launchesAtLogin,
             theme: theme,
+            menuBarStyle: menuBarStyle,
             togglePause: { [weak self] in self?.togglePause() },
             toggleLaunchAtLogin: { [weak self] in self?.toggleLaunchAtLogin() },
             setTheme: { [weak self] in self?.setTheme($0) },
+            setMenuBarStyle: { [weak self] in self?.setMenuBarStyle($0) },
             quit: { NSApplication.shared.terminate(nil) }
         )
     }
@@ -234,6 +238,17 @@ final class AppModel {
         guard t != theme else { return }
         theme = t
         ThemeStore.current = t   // sobrevive ao relaunch
+    }
+
+    func setMenuBarStyle(_ s: MenuBarStyle) {
+        guard s != menuBarStyle else { return }
+        menuBarStyle = s
+        MenuBarStyleStore.current = s
+    }
+
+    /// O texto que a barra mostra ao lado da proveta, pro estilo escolhido. Vazio = só ícone.
+    var menuBarText: String {
+        dashboard.menuBarText(style: menuBarStyle)
     }
 
     /// `nil` = o sistema não sabe dizer, e aí a opção SOME do menu em vez de mentir.

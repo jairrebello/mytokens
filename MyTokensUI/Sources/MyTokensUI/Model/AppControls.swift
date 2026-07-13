@@ -19,27 +19,34 @@ public struct AppControls {
     public var launchesAtLogin: Bool?
     /// O tema em vigor. O menu marca qual está ativo.
     public var theme: Theme
+    /// O que a barra mostra ao lado da proveta.
+    public var menuBarStyle: MenuBarStyle
 
     public var togglePause: () -> Void
     public var toggleLaunchAtLogin: () -> Void
     public var setTheme: (Theme) -> Void
+    public var setMenuBarStyle: (MenuBarStyle) -> Void
     public var quit: () -> Void
 
     public init(
         isPaused: Bool = false,
         launchesAtLogin: Bool? = nil,
         theme: Theme = .bancada,
+        menuBarStyle: MenuBarStyle = .iconOnly,
         togglePause: @escaping () -> Void = {},
         toggleLaunchAtLogin: @escaping () -> Void = {},
         setTheme: @escaping (Theme) -> Void = { _ in },
+        setMenuBarStyle: @escaping (MenuBarStyle) -> Void = { _ in },
         quit: @escaping () -> Void = {}
     ) {
         self.isPaused = isPaused
         self.launchesAtLogin = launchesAtLogin
         self.theme = theme
+        self.menuBarStyle = menuBarStyle
         self.togglePause = togglePause
         self.toggleLaunchAtLogin = toggleLaunchAtLogin
         self.setTheme = setTheme
+        self.setMenuBarStyle = setMenuBarStyle
         self.quit = quit
     }
 }
