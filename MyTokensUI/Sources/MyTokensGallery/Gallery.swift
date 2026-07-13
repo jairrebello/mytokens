@@ -33,6 +33,8 @@ enum Shot: String, CaseIterable {
     case lanes            // as quatro texturas, isoladas, lado a lado
     case real             // o DISCO DESTA MÁQUINA. Sem mock. É o teste que não mente.
     case realWindow       // idem, na janela expandida
+    case realTerminal     // idem, no tema Terminal (fósforo verde)
+    case realTerminalWindow
 
     /// O mock é desenho; `real` é o app. A galeria roda os dois na MESMA view — se a
     /// pista só ficar bonita com dado inventado, o problema é a pista.
@@ -45,18 +47,19 @@ enum Shot: String, CaseIterable {
         case .reset: Mock.justReset
         case .overrun: Mock.overrun
         case .lanes: Mock.normal
-        case .real, .realWindow: Dashboard(lanes: [])   // substituído no launch pela leitura de verdade
+        case .real, .realWindow, .realTerminal, .realTerminalWindow:
+            Dashboard(lanes: [])   // substituído no launch pela leitura de verdade
         }
     }
 
     var isWindow: Bool {
-        self == .window || self == .windowAlmost || self == .realWindow
+        self == .window || self == .windowAlmost || self == .realWindow || self == .realTerminalWindow
     }
 
     var size: CGSize {
         switch self {
         case .lanes: CGSize(width: 700, height: 420)
-        case .window, .windowAlmost, .realWindow: CGSize(width: 960, height: 560)
+        case .window, .windowAlmost, .realWindow, .realTerminalWindow: CGSize(width: 960, height: 560)
         default: CGSize(width: 380, height: 560)   // popover + folga pro desktop
         }
     }
@@ -113,9 +116,13 @@ struct GalleryRoot: View {
         case .reset:
             ResetStage()          // o dreno anima ao abrir
         case .real:
-            DesktopBacking { RealStage(window: false) }
+            DesktopBacking { RealStage(window: false, theme: .bancada) }
         case .realWindow:
-            RealStage(window: true)
+            RealStage(window: true, theme: .bancada)
+        case .realTerminal:
+            DesktopBacking { RealStage(window: false, theme: .terminal) }
+        case .realTerminalWindow:
+            RealStage(window: true, theme: .terminal)
         default:
             DesktopBacking {
                 PopoverView(snapshot: shot.snapshot)
@@ -131,14 +138,15 @@ struct GalleryRoot: View {
 /// a tela mostra o estado VAZIO, que é a verdade naquele instante: ainda não sabemos.
 struct RealStage: View {
     let window: Bool
+    var theme: Theme = .bancada
     @State private var snapshot = Dashboard(lanes: [])
 
     var body: some View {
         Group {
             if window {
-                MainWindowView(snapshot: snapshot)
+                MainWindowView(snapshot: snapshot, theme: theme)
             } else {
-                PopoverView(snapshot: snapshot)
+                PopoverView(snapshot: snapshot, theme: theme)
             }
         }
             .task {

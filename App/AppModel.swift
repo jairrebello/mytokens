@@ -26,6 +26,8 @@ final class AppModel {
     private(set) var lastRefresh: Date?
     private(set) var lastDuration: TimeInterval?
     private(set) var isPaused = false
+    /// O tema escolhido. Muda a tela na hora e sobrevive ao relaunch (persistido).
+    private(set) var theme: Theme = ThemeStore.current
     /// Quantas vezes o DISCO nos acordou. É a prova, em QA, de que isto é evento e não polling.
     private(set) var wakeCount = 0
     /// Se o motor nem subiu (ex.: pricing.json corrompido), a tela DIZ isso.
@@ -220,10 +222,18 @@ final class AppModel {
         AppControls(
             isPaused: isPaused,
             launchesAtLogin: launchesAtLogin,
+            theme: theme,
             togglePause: { [weak self] in self?.togglePause() },
             toggleLaunchAtLogin: { [weak self] in self?.toggleLaunchAtLogin() },
+            setTheme: { [weak self] in self?.setTheme($0) },
             quit: { NSApplication.shared.terminate(nil) }
         )
+    }
+
+    func setTheme(_ t: Theme) {
+        guard t != theme else { return }
+        theme = t
+        ThemeStore.current = t   // sobrevive ao relaunch
     }
 
     /// `nil` = o sistema não sabe dizer, e aí a opção SOME do menu em vez de mentir.

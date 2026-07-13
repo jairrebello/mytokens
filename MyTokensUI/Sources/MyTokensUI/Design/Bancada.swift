@@ -95,19 +95,6 @@ extension EnvironmentValues {
     }
 }
 
-/// Casa a paleta com o esquema do sistema. O popover vive na barra do sistema
-/// e não escolhe o tema do usuário — então isto tem que ser automático.
-public struct BancadaTheme: ViewModifier {
-    @Environment(\.colorScheme) private var scheme
-    public func body(content: Content) -> some View {
-        content.environment(\.palette, .forScheme(scheme))
-    }
-}
-
-extension View {
-    public func bancada() -> some View { modifier(BancadaTheme()) }
-}
-
 // MARK: - Tipo
 //
 // Duas famílias, papéis FIXOS. Nunca trocar — é o que faz parecer instrumento.

@@ -61,7 +61,8 @@ private struct PopoverScene: View {
             snapshot: model.dashboard,
             onOpenWindow: abrir,
             onConnect: model.connect,
-            controls: model.controls
+            controls: model.controls,
+            theme: model.theme
         )
         // O rodapé do popover ANUNCIA `⌘⏎`. Um atalho anunciado e não implementado é uma
         // mentira pequena, e este app não pode se dar ao luxo nem das pequenas.
@@ -82,6 +83,25 @@ private struct PopoverScene: View {
         // Sem isto a janela nasce ATRÁS de quem estiver na frente: o app é `.accessory`
         // (não tem Dock, não tem Cmd+Tab), então ninguém o ativa por ele.
         NSApp.activate(ignoringOtherApps: true)
+        // E o popover da barra tem que FECHAR — senão ele fica pendurado sobre o desktop
+        // enquanto a janela abre atrás. Ele não fecha sozinho porque a janela roubou o
+        // foco antes de ele perceber que perdeu o key.
+        Self.dismissMenuBarPopover()
+    }
+
+    /// Fecha o popover do MenuBarExtra.
+    ///
+    /// SwiftUI não expõe um dismiss público pra ele, então acho a janela dele pelo NOME do
+    /// tipo (nas versões atuais tem "MenuBarExtra"; nas antigas é uma "NSStatusBarWindow").
+    /// É frágil a um rename da Apple — mas é AppKit puro, não API privada, e se um dia o
+    /// nome mudar o pior caso é o popover não fechar, nunca um crash.
+    static func dismissMenuBarPopover() {
+        for w in NSApp.windows {
+            let tipo = String(describing: type(of: w))
+            if tipo.contains("MenuBarExtra") || w.className.contains("NSStatusBarWindow") {
+                w.close()
+            }
+        }
     }
 }
 
@@ -91,7 +111,7 @@ private struct MainScene: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        MainWindowView(snapshot: model.dashboard, onConnect: model.connect)
+        MainWindowView(snapshot: model.dashboard, onConnect: model.connect, theme: model.theme)
     }
 }
 

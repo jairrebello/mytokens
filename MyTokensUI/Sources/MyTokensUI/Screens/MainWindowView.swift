@@ -16,10 +16,16 @@ public struct MainWindowView: View {
 
     public let snapshot: Dashboard
     public var onConnect: (Provider) -> Void = { _ in }
+    public var theme: Theme = .bancada
 
-    public init(snapshot: Dashboard, onConnect: @escaping (Provider) -> Void = { _ in }) {
+    public init(
+        snapshot: Dashboard,
+        onConnect: @escaping (Provider) -> Void = { _ in },
+        theme: Theme = .bancada
+    ) {
         self.snapshot = snapshot
         self.onConnect = onConnect
+        self.theme = theme
     }
 
     private var verdict: Verdict { .of(snapshot) }
@@ -34,7 +40,7 @@ public struct MainWindowView: View {
         }
         .frame(width: 960, alignment: .leading)
         .background(p.canvas)
-        .bancada()
+        .theme(theme)
     }
 
     // MARK: - O veredito
@@ -199,7 +205,7 @@ public struct MainWindowView: View {
 
     private var footer: some View {
         HStack {
-            ProvenanceLegend()
+            ProvenanceLegend(present: snapshot.legendKinds)
             Spacer()
             HStack(spacing: S.s2) {
                 Text("HOJE")

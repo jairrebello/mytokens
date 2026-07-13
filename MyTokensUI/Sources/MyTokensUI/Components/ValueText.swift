@@ -95,21 +95,32 @@ public struct RangeText: View {
 
 public struct ProvenanceLegend: View {
     @Environment(\.palette) private var p
-    public init() {}
+
+    /// As texturas que a tela ESTÁ usando agora. A legenda explica o que está à vista, não
+    /// um catálogo — se não há nada inferido na tela, "INFERIDO" só rouba largura e ensina
+    /// a ler uma textura que ninguém está vendo. `nil` = mostra as três (compat/preview).
+    private let present: Set<LegendKind>?
+
+    public init() { self.present = nil }
+    public init(present: Set<LegendKind>) { self.present = present }
+
+    private func shows(_ k: LegendKind) -> Bool { present?.contains(k) ?? true }
 
     public var body: some View {
         HStack(spacing: S.s3) {
-            item("Medido") {
-                Rectangle().fill(p.ink2).frame(width: 16, height: 7)
+            if shows(.measured) {
+                item("Medido") { Rectangle().fill(p.ink2).frame(width: 16, height: 7) }
             }
-            item("Inferido") {
-                Hatch(color: p.ink2).frame(width: 16, height: 7)
+            if shows(.inferred) {
+                item("Inferido") { Hatch(color: p.ink2).frame(width: 16, height: 7) }
             }
-            item("Sem dado") {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                    .foregroundStyle(p.line)
-                    .frame(width: 16, height: 7)
+            if shows(.absent) {
+                item("Sem dado") {
+                    Rectangle()
+                        .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                        .foregroundStyle(p.line)
+                        .frame(width: 16, height: 7)
+                }
             }
         }
     }
@@ -122,5 +133,23 @@ public struct ProvenanceLegend: View {
                 .tracking(0.05 * T.micro)
                 .foregroundStyle(p.ink3)
         }
+    }
+}
+
+/// As três texturas que a legenda nomeia. Uma pista se encaixa em exatamente uma.
+public enum LegendKind: Sendable { case measured, inferred, absent }
+
+extension Dashboard {
+    /// Quais texturas de fato aparecem nas pistas de agora. É o que a legenda mostra.
+    public var legendKinds: Set<LegendKind> {
+        var out: Set<LegendKind> = []
+        for lane in lanes {
+            switch lane.certainty {
+            case .measured:            out.insert(.measured)
+            case .derived, .composite: out.insert(.inferred)
+            case .absent:              out.insert(.absent)
+            }
+        }
+        return out
     }
 }

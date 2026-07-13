@@ -17,22 +17,29 @@ public struct AppControls {
     /// `nil` = o sistema não sabe dizer (app rodando fora de /Applications, por exemplo).
     /// A opção some do menu em vez de mentir um estado.
     public var launchesAtLogin: Bool?
+    /// O tema em vigor. O menu marca qual está ativo.
+    public var theme: Theme
 
     public var togglePause: () -> Void
     public var toggleLaunchAtLogin: () -> Void
+    public var setTheme: (Theme) -> Void
     public var quit: () -> Void
 
     public init(
         isPaused: Bool = false,
         launchesAtLogin: Bool? = nil,
+        theme: Theme = .bancada,
         togglePause: @escaping () -> Void = {},
         toggleLaunchAtLogin: @escaping () -> Void = {},
+        setTheme: @escaping (Theme) -> Void = { _ in },
         quit: @escaping () -> Void = {}
     ) {
         self.isPaused = isPaused
         self.launchesAtLogin = launchesAtLogin
+        self.theme = theme
         self.togglePause = togglePause
         self.toggleLaunchAtLogin = toggleLaunchAtLogin
+        self.setTheme = setTheme
         self.quit = quit
     }
 }

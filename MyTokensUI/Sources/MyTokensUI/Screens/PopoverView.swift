@@ -16,19 +16,23 @@ public struct PopoverView: View {
     public let snapshot: Dashboard
     public var onOpenWindow: () -> Void = {}
     public var onConnect: (Provider) -> Void = { _ in }
-    /// Pausar / abrir no login / sair. Sem isto, o app não tem porta de saída.
+    /// Pausar / abrir no login / trocar tema / sair. Sem isto, o app não tem porta de saída.
     public var controls = AppControls()
+    /// O tema escolhido. Default Bancada pra galeria/preview não precisar passar.
+    public var theme: Theme = .bancada
 
     public init(
         snapshot: Dashboard,
         onOpenWindow: @escaping () -> Void = {},
         onConnect: @escaping (Provider) -> Void = { _ in },
-        controls: AppControls = AppControls()
+        controls: AppControls = AppControls(),
+        theme: Theme = .bancada
     ) {
         self.snapshot = snapshot
         self.onOpenWindow = onOpenWindow
         self.onConnect = onConnect
         self.controls = controls
+        self.theme = theme
     }
 
     private var verdict: Verdict { .of(snapshot) }
@@ -41,7 +45,7 @@ public struct PopoverView: View {
         }
         .frame(width: 340)
         .background(surface)
-        .bancada()
+        .theme(theme)
     }
 
     // MARK: - Superfície
@@ -164,7 +168,9 @@ public struct PopoverView: View {
         HStack(spacing: S.s2) {
             // A legenda da procedência é INFORMAÇÃO — ela não encolhe pra caber um botão.
             // Sem o fixedSize, o ⋯ roubava largura e "MEDIDO" quebrava em "MEDID/O".
-            ProvenanceLegend()
+            // E ela mostra SÓ as texturas que estão na tela agora: com tudo medido, é uma
+            // palavra só, e o rodapé respira.
+            ProvenanceLegend(present: snapshot.legendKinds)
                 .fixedSize()
                 .layoutPriority(1)
             Spacer(minLength: 0)
@@ -210,6 +216,17 @@ struct AppMenu: View {
         Menu {
             Button(controls.isPaused ? "Retomar leitura" : "Pausar leitura",
                    action: controls.togglePause)
+
+            // O tema é a única PREFERÊNCIA do app — tudo o mais é significado. Submenu com
+            // marca no ativo: escolha, não interruptor.
+            Divider()
+            Menu("Tema") {
+                ForEach(Theme.allCases) { t in
+                    Button(action: { controls.setTheme(t) }) {
+                        Label(t.label, systemImage: t == controls.theme ? "checkmark" : "")
+                    }
+                }
+            }
 
             // Só aparece se o sistema souber responder. Um toggle que não sabe o próprio
             // estado é pior que toggle nenhum.
