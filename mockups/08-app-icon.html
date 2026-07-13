@@ -1,0 +1,109 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MyTokens — app icon</title>
+<style>
+  html,body{margin:0;padding:0;background:#0000;}
+  /* O canvas EXATO do ícone macOS: 1024×1024, fundo transparente (o squircle é o corpo). */
+  #icon{width:1024px;height:1024px;}
+</style>
+
+<!--
+  MyTokens — ícone do app.
+
+  Direção: INSTRUMENTO DE BANCADA. A metáfora do app inteiro é a proveta graduada —
+  medir o nível, ver o limite. O ícone É essa proveta: vidro sobre preto quente, líquido
+  âmbar que ACENDE o vidro ao redor (o "calor" = atividade do sistema-Prisma). Sem
+  gradiente genérico, sem símbolo abstrato: o objeto que o app É.
+
+  O corte reto no topo do líquido é a linguagem do app: "medido". Os ticks à esquerda são
+  a escala. O menisco brilha — é onde o fato acaba.
+-->
+
+<svg id="icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- vidro preto quente: mais claro no topo, escurece pro fundo (luz de bancada vem de cima) -->
+    <linearGradient id="glass" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0"   stop-color="oklch(0.235 0.016 62)"/>
+      <stop offset="0.55" stop-color="oklch(0.170 0.012 60)"/>
+      <stop offset="1"   stop-color="oklch(0.120 0.010 58)"/>
+    </linearGradient>
+
+    <!-- o calor: o líquido acende o vidro atrás dele -->
+    <radialGradient id="heat" cx="0.5" cy="0.62" r="0.55">
+      <stop offset="0"   stop-color="oklch(0.72 0.14 52)" stop-opacity="0.40"/>
+      <stop offset="0.5" stop-color="oklch(0.68 0.13 48)" stop-opacity="0.14"/>
+      <stop offset="1"   stop-color="oklch(0.68 0.13 48)" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- o líquido: âmbar, mais quente e claro perto do menisco -->
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="oklch(0.82 0.16 60)"/>
+      <stop offset="0.14" stop-color="oklch(0.76 0.155 50)"/>
+      <stop offset="1"    stop-color="oklch(0.62 0.150 40)"/>
+    </linearGradient>
+
+    <!-- reflexo especular do vidro, à esquerda do tubo -->
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"    stop-color="oklch(0.98 0.01 90)" stop-opacity="0.32"/>
+      <stop offset="0.35" stop-color="oklch(0.98 0.01 90)" stop-opacity="0.05"/>
+      <stop offset="1"    stop-color="oklch(0.98 0.01 90)" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- brilho do menisco -->
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- grain finíssimo: tira o "plástico" do vidro -->
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.03 0"/>
+    </filter>
+
+    <!-- sombra do corpo, projetada no vazio (convenção macOS) -->
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="16" stdDeviation="26" flood-color="#000" flood-opacity="0.42"/>
+    </filter>
+
+    <!-- o tubo, pra clipar o líquido dentro dele -->
+    <clipPath id="tube">
+      <rect x="399" y="243" width="226" height="470" rx="80"/>
+    </clipPath>
+  </defs>
+
+  <!-- CORPO: o squircle da bancada -->
+  <g filter="url(#drop)">
+    <rect x="104" y="96" width="816" height="816" rx="212" fill="url(#glass)"/>
+    <!-- o calor atrás da proveta -->
+    <rect x="104" y="96" width="816" height="816" rx="212" fill="url(#heat)"/>
+    <!-- grain por cima -->
+    <rect x="104" y="96" width="816" height="816" rx="212" filter="url(#grain)"/>
+    <!-- aro interno sutil: dá o "vidro" da borda do squircle -->
+    <rect x="105.5" y="97.5" width="813" height="813" rx="210.5"
+          fill="none" stroke="oklch(0.98 0.01 90)" stroke-opacity="0.06" stroke-width="3"/>
+  </g>
+
+  <!-- OS TICKS: a escala, à esquerda do tubo -->
+  <g stroke="oklch(0.95 0.008 80)" stroke-opacity="0.34" stroke-width="11" stroke-linecap="round">
+    <line x1="330" y1="360" x2="384" y2="360"/>
+    <line x1="330" y1="478" x2="384" y2="478"/>
+    <line x1="330" y1="596" x2="384" y2="596"/>
+  </g>
+
+  <!-- O LÍQUIDO: preenche ~60% de baixo pra cima, clipado pelo tubo -->
+  <g clip-path="url(#tube)">
+    <!-- glow do âmbar espalhando dentro do vidro -->
+    <rect x="399" y="430" width="226" height="283" fill="oklch(0.70 0.14 50)" opacity="0.5" filter="url(#glow)"/>
+    <!-- o líquido -->
+    <rect x="399" y="446" width="226" height="267" fill="url(#ink)"/>
+    <!-- o menisco: a linha brilhante onde o fato acaba (corte reto = medido) -->
+    <rect x="399" y="446" width="226" height="10" fill="oklch(0.93 0.10 66)" filter="url(#glow)"/>
+  </g>
+
+  <!-- O VIDRO: contorno do tubo + reflexo -->
+  <rect x="399" y="243" width="226" height="470" rx="80"
+        fill="none" stroke="oklch(0.95 0.008 80)" stroke-width="14"/>
+  <!-- reflexo especular, dentro do tubo, à esquerda -->
+  <rect x="416" y="262" width="150" height="432" rx="62" fill="url(#sheen)" clip-path="url(#tube)"/>
+</svg>
