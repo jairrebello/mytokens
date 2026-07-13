@@ -1,0 +1,369 @@
+/* ============================================================
+   MYTOKENS — Direção A: "BANCADA"
+   Sistema de design. Instrumento de bancada, não dashboard.
+
+   Este arquivo é a fonte de verdade dos tokens. docs/UI-SPEC.md
+   explica o PORQUÊ de cada um. Mockup é descartável; o token não.
+   ============================================================ */
+
+/* ---------- 1. COR ------------------------------------------
+   Regra que governa tudo: O APP É ACROMÁTICO.
+   Croma é recurso escasso. Existe UMA matiz (ember, ~40°) e ela
+   não significa "perigo" — significa CALOR = atividade.
+     cinza  = provedor parado
+     ember  = está queimando agora
+     ember quente = vai estourar
+   Uma matiz só, croma crescente. Nunca vira semáforo, porque não
+   existe verde nem amarelo pra fazer par.
+   ------------------------------------------------------------ */
+:root {
+  color-scheme: dark;
+
+  /* superfícies — preto quente (60°), nunca preto-azulado de SaaS */
+  --canvas:      oklch(0.165 0.006 60);
+  --surface:     oklch(0.205 0.007 60);
+  --surface-hi:  oklch(0.235 0.008 60);
+  --track:       oklch(0.265 0.007 60);
+  --line:        oklch(0.305 0.008 60);
+  --line-soft:   oklch(0.255 0.007 60);
+
+  /* tinta — bone, levemente quente. É a cor do DADO. */
+  --ink-0:  oklch(0.955 0.008 80);   /* número principal        */
+  --ink-1:  oklch(0.780 0.008 80);   /* número secundário       */
+  --ink-2:  oklch(0.590 0.008 80);   /* rótulo                  */
+  --ink-3:  oklch(0.455 0.008 80);   /* rótulo apagado, unidade */
+  --ink-4:  oklch(0.360 0.008 80);   /* traço fantasma          */
+
+  /* ember — a única matiz do app */
+  --ember-cold: oklch(0.700 0.035 45);  /* quase cinza: medido, parado  */
+  --ember:      oklch(0.760 0.130 48);  /* vivo: queimando agora        */
+  --ember-hot:  oklch(0.680 0.195 32);  /* estouro. E SÓ estouro.       */
+  --ember-glow: oklch(0.760 0.130 48 / 0.20);
+
+  /* ---------- 2. TIPO ---------------------------------------
+     Duas famílias, papéis fixos:
+       grotesca  = rótulo humano (o que a coisa é)
+       mono      = número (o que a máquina mediu)
+     Nunca troque os papéis: é o que faz parecer instrumento.
+     ---------------------------------------------------------- */
+  --font-ui:   -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --font-num:  ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
+
+  --t-micro: 10px;  /* rótulo em caixa alta, tracking aberto */
+  --t-xs:    11px;
+  --t-sm:    13px;
+  --t-md:    15px;
+  --t-lg:    19px;
+  --t-xl:    26px;
+  --t-2xl:   40px;
+  --t-3xl:   54px;  /* o veredito. E só ele. */
+
+  /* ---------- 3. ESPAÇO — base 4 ---------------------------- */
+  --s-1: 4px;  --s-2: 8px;   --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px;  --s-7: 48px; --s-8: 64px;
+
+  /* ---------- 4. RAIO ---------------------------------------
+     Baixo. Raio alto = bolha de SaaS. Instrumento tem canto vivo.
+     Pista de dado = 0. Nada arredonda um dado.
+     ---------------------------------------------------------- */
+  --r-0: 0px;   /* pista, régua, tinta */
+  --r-1: 3px;   /* chip, botão */
+  --r-2: 6px;   /* painel */
+  --r-3: 10px;  /* popover (única peça que flutua) */
+
+  /* ---------- 5. SOMBRA -------------------------------------
+     No escuro, sombra não separa nada. Elevação = fio de 1px +
+     brilho interno no topo. Sombra de verdade só no popover,
+     porque ele é a única coisa que realmente flutua sobre o desktop.
+     ---------------------------------------------------------- */
+  --shadow-pop:
+    0 0 0 0.5px oklch(0.45 0.008 60 / 0.9),
+    0 12px 32px -8px oklch(0 0 0 / 0.55),
+    0 2px 8px  -2px oklch(0 0 0 / 0.4);
+  --bevel: inset 0 1px 0 oklch(1 0 0 / 0.045);
+
+  /* ---------- 6. MOVIMENTO ----------------------------------
+     Anima ESTADO, nunca decoração.
+     ---------------------------------------------------------- */
+  --dur-tick:  140ms;  /* número trocando de valor      */
+  --dur-ui:    200ms;  /* hover, revelar                */
+  --dur-state: 420ms;  /* tinta avançando na pista      */
+  --dur-reset: 900ms;  /* o dreno. É o momento de alívio. */
+
+  --ease-out:   cubic-bezier(0.20, 0.70, 0.20, 1.00);  /* assenta e para */
+  --ease-drain: cubic-bezier(0.55, 0.00, 0.30, 1.00);  /* expira: puxa, solta */
+}
+
+/* Modo claro. O ícone e o popover vivem na barra do sistema:
+   têm que sobreviver aos dois. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --canvas:     oklch(0.975 0.004 80);
+    --surface:    oklch(0.995 0.002 80);
+    --surface-hi: oklch(0.945 0.005 80);
+    --track:      oklch(0.905 0.006 80);
+    --line:       oklch(0.855 0.007 80);
+    --line-soft:  oklch(0.915 0.006 80);
+    --ink-0: oklch(0.220 0.010 60);
+    --ink-1: oklch(0.380 0.010 60);
+    --ink-2: oklch(0.520 0.009 60);
+    --ink-3: oklch(0.640 0.008 60);
+    --ink-4: oklch(0.760 0.007 60);
+    --ember-cold: oklch(0.560 0.045 45);
+    --ember:      oklch(0.580 0.150 42);
+    --ember-hot:  oklch(0.530 0.200 30);
+    --shadow-pop:
+      0 0 0 0.5px oklch(0.70 0.008 60),
+      0 12px 32px -8px oklch(0.4 0.02 60 / 0.22),
+      0 2px 8px -2px oklch(0.4 0.02 60 / 0.14);
+    --bevel: inset 0 1px 0 oklch(1 0 0 / 0.8);
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--canvas);
+  color: var(--ink-1);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1, "ss01" 1;  /* algarismo tabular SEMPRE:
+                                                 número que treme ao atualizar
+                                                 destrói a leitura de relance */
+}
+
+/* ============================================================
+   OS TRÊS ESTADOS DE VERDADE
+   O coração do app. Se isso ler errado, o app mente.
+
+     MEDIDO   → tinta sólida, topo com corte reto.  "eu sei"
+     DERIVADO → tinta reticulada, topo pontilhado,
+                mais uma faixa de incerteza visível.  "eu estimo"
+     AUSENTE  → sem tinta. A pista existe, vazia.     "eu não sei"
+
+   Repare: MEDIDO é o caso NÃO-MARCADO. Não tem selo, não tem
+   badge, não tem nada. A honestidade não custa enfeite; a
+   incerteza é que paga o preço visual. É assim que tem que ser.
+   ============================================================ */
+
+/* --- a pista: 5 h de janela, da esquerda pra direita --------
+   Um eixo, duas leituras:
+     tinta   = % da COTA queimada
+     cursor  = % do TEMPO decorrido
+   A resposta do app é o VÃO entre os dois.
+   Tinta atrás do cursor = você gasta mais devagar que o relógio. Folga.
+   Tinta na frente      = você acaba antes da janela fechar.
+   ------------------------------------------------------------ */
+.track {
+  position: relative;
+  height: 14px;
+  background: var(--track);
+  border-radius: var(--r-0);
+  overflow: visible;
+}
+.track::after {                 /* linha de base do instrumento */
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 1px; background: var(--line);
+}
+
+/* marcas de hora dentro da pista: 1 h, 2 h, 3 h, 4 h */
+.ticks { position: absolute; inset: 0; pointer-events: none; }
+.ticks i {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--canvas); opacity: 0.55;
+}
+
+/* TINTA — MEDIDO */
+.ink {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  background: var(--ember-cold);
+  transition: width var(--dur-state) var(--ease-out),
+              background var(--dur-state) linear;
+}
+.ink::after {                   /* corte reto: a borda dura é a promessa */
+  content: "";
+  position: absolute; top: -3px; bottom: -3px; right: -1px;
+  width: 2px; background: var(--ink-0);
+}
+.ink.live       { background: var(--ember); }
+.ink.live::after{ background: var(--ember); box-shadow: 0 0 10px var(--ember-glow); }
+
+/* TINTA — DERIVADO
+   Reticulado 1px/3px. Convenção cartográfica de "inferido", com
+   300 anos de uso. Não precisa de legenda pra ser sentida:
+   a área não é sólida, logo o dado não é sólido. */
+.ink.derived {
+  background:
+    repeating-linear-gradient(90deg,
+      var(--ember-cold) 0 1px,
+      transparent       1px 3px);
+}
+.ink.derived.live {
+  background:
+    repeating-linear-gradient(90deg,
+      var(--ember) 0 1px,
+      transparent  1px 3px);
+}
+.ink.derived::after {           /* topo pontilhado: a borda não é uma promessa */
+  background: repeating-linear-gradient(180deg,
+    var(--ink-1) 0 2px, transparent 2px 4px);
+  box-shadow: none;
+  width: 2px;
+}
+
+/* FAIXA DE INCERTEZA — só no derivado.
+   Isso é o que separa "borrão bonitinho" de estatística honesta:
+   a faixa vai do piso ao teto plausível, com dois ticks duros. */
+.band {
+  position: absolute; top: -5px; bottom: -5px;
+  border-left: 1px solid var(--ink-4);
+  border-right: 1px solid var(--ink-4);
+  background: repeating-linear-gradient(135deg,
+    var(--ink-4) 0 1px, transparent 1px 5px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* CURSOR DO AGORA — atravessa as três pistas. É o mesmo relógio. */
+.now {
+  position: absolute; top: -10px; bottom: -10px; width: 1px;
+  background: var(--ink-2);
+  pointer-events: none;
+}
+.now::before {                  /* cabeça de agulha */
+  content: "";
+  position: absolute; top: -3px; left: -2px;
+  width: 5px; height: 5px;
+  background: var(--ink-2);
+  transform: rotate(45deg);
+}
+
+/* PROJEÇÃO — onde a tinta chega no fim da janela, no ritmo atual.
+   Só aparece quando importa (>70%). Antes disso é ruído. */
+.proj {
+  position: absolute; top: 1px; bottom: 1px;
+  background: repeating-linear-gradient(135deg,
+    var(--ink-4) 0 1px, transparent 1px 4px);
+  border-right: 1px dashed var(--ink-3);
+  pointer-events: none;
+}
+/* ESTOURO — a projeção rompe o fim da pista.
+   Este é o ÚNICO lugar do app onde entra croma alta.
+   O alarme não é a barra ficando vermelha: é a projeção
+   VAZANDO PRA FORA do trilho. O trilho é o limite. */
+.overrun {
+  position: absolute; top: -2px; bottom: -2px; left: 100%;
+  background: repeating-linear-gradient(135deg,
+    var(--ember-hot) 0 2px, transparent 2px 5px);
+  border-left: 2px solid var(--ember-hot);
+  border-right: 1px solid var(--ember-hot);
+}
+
+/* AUSENTE — a pista existe, o relógio existe, a tinta não.
+   Nunca zero. Zero é um número, e número é uma afirmação. */
+.track.empty {
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 1px;
+}
+.track.empty::after { display: none; }
+
+/* ============================================================
+   BARRA COMPOSTA — medido ATÉ AQUI, estimado DAQUI EM DIANTE.
+   Isto caiu do dado real e é a peça mais importante do sistema.
+
+   O statusLine do Claude só dispara ENQUANTO o Claude Code roda.
+   Logo todo valor medido tem IDADE. Se a última verdade chegou há
+   12 min e o disco registrou gasto desde então, o app sabe duas
+   coisas com certezas DIFERENTES — e elas moram na MESMA barra:
+
+     [====sólido====][:::reticulado:::]
+      medido 09:14    inferido do disco
+                    ^
+                    a fronteira é literalmente
+                    "a última vez que a verdade chegou"
+
+   Nenhuma outra peça precisou ser inventada: são as duas texturas
+   que já existiam, na ordem certa, na mesma barra.
+   ============================================================ */
+.ink.split { background: none; }
+.ink.split .m {            /* trecho MEDIDO — sólido, começa na origem */
+  position: absolute; top: 0; bottom: 0; left: 0;
+  background: var(--ember-cold);
+}
+.ink.split.live .m { background: var(--ember); }
+.ink.split .d {            /* trecho INFERIDO — reticulado, continua dali */
+  position: absolute; top: 0; bottom: 0; right: 0;
+  background: repeating-linear-gradient(90deg,
+    var(--ember-cold) 0 1px, transparent 1px 3px);
+}
+.ink.split.live .d {
+  background: repeating-linear-gradient(90deg,
+    var(--ember) 0 1px, transparent 1px 3px);
+}
+/* a FRONTEIRA: 1px vertical claro. é o carimbo de hora da última verdade.
+   sem ela, a barra composta vira degradê e o usuário não sabe onde
+   o fato acaba e o palpite começa. */
+.ink.split .seam {
+  position: absolute; top: -4px; bottom: -4px; width: 1px;
+  background: var(--ink-1);
+}
+.ink.split::after {        /* topo pontilhado: a ponta é inferida */
+  background: repeating-linear-gradient(180deg,
+    var(--ink-1) 0 2px, transparent 2px 4px);
+  box-shadow: none;
+}
+
+/* DEFASADO SEM DISCO — medimos, mas faz tempo e não dá pra inferir nada.
+   A tinta inteira perde presença. Não é um valor errado: é um valor VELHO. */
+.ink.stale { opacity: 0.45; }
+.ink.stale::after { background: var(--ink-3); }
+
+/* ---------- números e rótulos ------------------------------- */
+.label {
+  font-size: var(--t-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.unit { color: var(--ink-3); font-weight: 400; }
+
+/* PESO COMO TENSÃO — não é semáforo, é gramatura.
+   Quanto mais perto do limite, mais PESADO e mais CLARO o número
+   fica. A tensão sobe por tinta, não por matiz. */
+.pct { font-family: var(--font-num); font-variant-numeric: tabular-nums;
+       font-size: var(--t-xl); letter-spacing: -0.02em; }
+.pct[data-heat="0"] { color: var(--ink-2); font-weight: 400; }
+.pct[data-heat="1"] { color: var(--ink-1); font-weight: 500; }
+.pct[data-heat="2"] { color: var(--ink-0); font-weight: 600; }
+.pct[data-heat="3"] { color: var(--ink-0); font-weight: 700; letter-spacing: -0.03em; }
+.pct[data-heat="4"] { color: var(--ember-hot); font-weight: 700; letter-spacing: -0.03em; }
+
+/* o til é o eco tipográfico do reticulado. mesma mensagem, outro canal. */
+.approx { color: var(--ink-3); font-weight: 400; }
+
+/* ---------- estruturas comuns ------------------------------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-2);
+  box-shadow: var(--bevel);
+}
+.rule { height: 1px; background: var(--line-soft); border: 0; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: var(--s-1);
+  height: 18px; padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  font-size: var(--t-micro);
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.chip.act { border-color: var(--ember); color: var(--ember); }

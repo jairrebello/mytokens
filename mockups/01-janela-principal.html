@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · janela principal</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center;
+         min-height:100vh; padding:40px; background:oklch(0.10 0.004 60); }
+  @media (prefers-color-scheme: light){ body{ background:oklch(0.90 0.004 80);} }
+
+  .win {
+    width: 940px; background: var(--canvas);
+    border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 40px 90px -20px oklch(0 0 0 / .6);
+  }
+
+  /* --- barra de título: vazia de propósito. o app não tem menu. --- */
+  .titlebar {
+    height: 38px; display:flex; align-items:center; gap:var(--s-2);
+    padding: 0 var(--s-4);
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--surface);
+  }
+  .dot { width:11px; height:11px; border-radius:50%; background:var(--track); }
+  .titlebar .name { margin-left:auto; margin-right:auto;
+    font-size:var(--t-xs); color:var(--ink-3); letter-spacing:.14em;
+    text-transform:uppercase; font-weight:600; }
+
+  /* --- O VEREDITO. a única coisa que responde a pergunta. --- */
+  .verdict { padding: var(--s-6) var(--s-6) var(--s-5); }
+  .verdict h1 {
+    font-size: var(--t-3xl); font-weight: 600; letter-spacing:-0.035em;
+    color: var(--ink-0); line-height: 1;
+  }
+  .verdict p {
+    margin-top: var(--s-3); font-size: var(--t-md); color: var(--ink-2);
+    max-width: 62ch; line-height:1.45;
+  }
+  .verdict p b { color: var(--ink-1); font-weight:500; }
+  .verdict .num { color: var(--ink-0); }
+
+  .clockline {
+    display:flex; align-items:baseline; gap:var(--s-3);
+    margin-top: var(--s-5);
+  }
+  .clockline .big {
+    font-family:var(--font-num); font-size:var(--t-lg); color:var(--ink-1);
+    letter-spacing:-.01em;
+  }
+
+  /* --- o instrumento: 3 pistas, 1 eixo de tempo --- */
+  .bench { padding: 0 var(--s-6) var(--s-5); }
+
+  .axis {
+    display:grid; grid-template-columns: 148px 1fr 132px;
+    align-items:center; gap: var(--s-4);
+    padding-bottom: var(--s-2);
+  }
+  .axis .scale { position:relative; height:12px; }
+  .axis .scale span {
+    position:absolute; top:0; transform:translateX(-50%);
+    font-size:var(--t-micro); color:var(--ink-4);
+    font-family:var(--font-num); letter-spacing:.04em;
+  }
+
+  .row {
+    display:grid; grid-template-columns: 148px 1fr 132px;
+    align-items:center; gap: var(--s-4);
+    padding: var(--s-4) 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .row:hover { background: oklch(1 0 0 / .012); }
+
+  .who { display:flex; flex-direction:column; gap:5px; }
+  .who .n { font-size:var(--t-md); color:var(--ink-0); font-weight:500;
+            letter-spacing:-.01em; }
+  .who .m { font-size:var(--t-micro); color:var(--ink-3);
+            font-family:var(--font-num); letter-spacing:.02em; }
+
+  .lane { position:relative; padding: 10px 0; }
+
+  .read { text-align:right; display:flex; flex-direction:column; gap:2px; }
+  .read .sub { font-size:var(--t-xs); color:var(--ink-3);
+               font-family:var(--font-num); }
+  .read .sub b { color:var(--ink-2); font-weight:500; }
+  .read .dash { font-family:var(--font-num); font-size:var(--t-xl);
+                color:var(--ink-4); font-weight:400; }
+  .read .connect {
+    font-size:var(--t-xs); color:var(--ember); text-decoration:none;
+    border-bottom:1px solid oklch(0.76 0.13 48 / .35); padding-bottom:1px;
+    align-self:flex-end;
+  }
+
+  /* --- rodapé: os buckets crus. principio "mostre o número cru,
+         mas nunca como resposta primária". --- */
+  .raw { border-top:1px solid var(--line); background:var(--surface);
+         padding: var(--s-4) var(--s-6); display:flex; gap:var(--s-7);
+         align-items:flex-start; }
+  .bucket { display:flex; flex-direction:column; gap:3px; }
+  .bucket .v { font-family:var(--font-num); font-size:var(--t-sm);
+               color:var(--ink-1); }
+  .bucket .v .unit { font-size:var(--t-xs); }
+  .cost { margin-left:auto; text-align:right; }
+  .cost .v { font-family:var(--font-num); font-size:var(--t-lg);
+             color:var(--ink-0); font-weight:500; }
+
+  /* --- a legenda de procedência. permanente, minúscula, inegociável.
+         é o contrato de honestidade, impresso na peça. --- */
+  .prov { border-top:1px solid var(--line-soft); background:var(--canvas);
+          padding: var(--s-3) var(--s-6); display:flex; gap:var(--s-5);
+          align-items:center; }
+  .prov .item { display:flex; align-items:center; gap:7px;
+                font-size:var(--t-micro); color:var(--ink-3);
+                letter-spacing:.06em; text-transform:uppercase; }
+  .sw { width:26px; height:9px; border-radius:1px; flex:none; }
+  .sw.m { background:var(--ink-1); }
+  .sw.d { background:repeating-linear-gradient(90deg,
+            var(--ink-1) 0 1px, transparent 1px 3px); }
+  .sw.a { border:1px dashed var(--line); }
+  .prov .src { margin-left:auto; font-size:var(--t-micro);
+               color:var(--ink-4); font-family:var(--font-num); }
+</style>
+</head>
+<body>
+<div class="win">
+
+  <div class="titlebar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="name">MyTokens</span>
+    <span class="chip">14:47</span>
+  </div>
+
+  <!-- ================= VEREDITO =================
+       Resposta primeiro. O gráfico é a PROVA, não a resposta. -->
+  <div class="verdict">
+    <h1>Dá pra continuar.</h1>
+    <p>
+      O limite que fecha primeiro é o <b>Codex</b>. No ritmo atual ele encosta
+      no teto <b>22 min antes</b> da janela virar.
+    </p>
+    <div class="clockline">
+      <span class="label">Folga real</span>
+      <span class="big num">1 h 43 min</span>
+      <span class="label" style="margin-left:var(--s-4)">Janela mais curta vira</span>
+      <span class="big num">16:12</span>
+    </div>
+  </div>
+
+  <!-- ================= A BANCADA =================
+       Um eixo: a janela de 5 h.
+       Duas leituras por pista: a TINTA (cota queimada) e o CURSOR (tempo).
+       O vão entre elas é a resposta. -->
+  <div class="bench">
+
+    <div class="axis">
+      <span class="label">Janela de 5 h</span>
+      <div class="scale">
+        <span style="left:0%">0h</span>
+        <span style="left:20%">1h</span>
+        <span style="left:40%">2h</span>
+        <span style="left:60%">3h</span>
+        <span style="left:80%">4h</span>
+        <span style="left:100%">5h</span>
+      </div>
+      <span class="label" style="text-align:right">Consumo</span>
+    </div>
+
+    <!-- CODEX — MEDIDO. rate_limits.primary.used_percent, do jsonl. -->
+    <div class="row">
+      <div class="who">
+        <span class="n">Codex</span>
+        <span class="m">gpt-5.4 · plus</span>
+      </div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks">
+            <i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i>
+          </div>
+          <!-- tinta sólida, corte reto. sabemos. -->
+          <div class="ink live" style="width:58%"></div>
+          <div class="now" style="left:54%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct" data-heat="2">58<span class="unit">%</span></span>
+        <span class="sub">zera <b>16:12</b></span>
+      </div>
+    </div>
+
+    <!-- CLAUDE — MISTO. e é aqui que o design se prova.
+         início da janela: MEDIDO (timestamp do 1º assistant do jsonl).
+         teto do plano:    DERIVADO (não existe no disco. é palpite calculado).
+         Logo: o horário do reset é sólido, a % é reticulada.
+         A certeza é por CAMPO, não por provedor. -->
+    <div class="row">
+      <div class="who">
+        <span class="n">Claude Code</span>
+        <span class="m">opus-4-8 · 3 sessões</span>
+      </div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks">
+            <i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i>
+          </div>
+          <!-- faixa de incerteza: 52–70%. dois ticks duros, hachura entre eles. -->
+          <div class="band" style="left:52%; width:18%"></div>
+          <div class="ink derived" style="width:61%"></div>
+          <div class="now" style="left:42%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct" data-heat="2"><span class="approx">~</span>61<span class="unit">%</span></span>
+        <span class="sub">52–70 · zera <b>17:40</b></span>
+      </div>
+    </div>
+
+    <!-- CURSOR — AUSENTE. e mesmo assim tem meia leitura:
+         o RELÓGIO a gente sempre sabe. Falta a tinta, não a pista.
+         Nunca um zero. Zero é uma afirmação. -->
+    <div class="row">
+      <div class="who">
+        <span class="n">Cursor</span>
+        <span class="m">sem dado local</span>
+      </div>
+      <div class="lane">
+        <div class="track empty">
+          <div class="now" style="left:54%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="dash">—</span>
+        <a class="connect" href="#">conectar conta</a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ NÚMERO CRU ============
+       4 buckets separados. Somar os 4 como "input" mente no custo:
+       cache_read custa ~10x menos, cache_creation ~1.25x mais. -->
+  <div class="raw">
+    <div class="bucket">
+      <span class="label">Input</span>
+      <span class="v">82,4<span class="unit">k</span></span>
+    </div>
+    <div class="bucket">
+      <span class="label">Output</span>
+      <span class="v">41,1<span class="unit">k</span></span>
+    </div>
+    <div class="bucket">
+      <span class="label">Cache escrito</span>
+      <span class="v">310,7<span class="unit">k</span></span>
+    </div>
+    <div class="bucket">
+      <span class="label">Cache lido</span>
+      <span class="v">4,71<span class="unit">M</span></span>
+    </div>
+    <div class="bucket cost">
+      <span class="label">Custo na janela</span>
+      <span class="v">US$ 6,84</span>
+    </div>
+  </div>
+
+  <!-- ============ PROCEDÊNCIA ============
+       Fica na tela pra sempre. Não é tooltip, não é modal, não é
+       "saiba mais". É o rodapé de um instrumento de medição. -->
+  <div class="prov">
+    <span class="item"><i class="sw m"></i> Medido</span>
+    <span class="item"><i class="sw d"></i> Derivado</span>
+    <span class="item"><i class="sw a"></i> Sem dado</span>
+    <span class="src">lido de ~/.codex · ~/.claude · há 4 s</span>
+  </div>
+
+</div>
+</body>
+</html>

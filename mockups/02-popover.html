@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · popover da barra de menu</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  /* Fundo = um pedaço de desktop, pra provar que o popover flutua
+     e que o ícone lê contra uma barra real. */
+  body { min-height:100vh; display:flex; justify-content:center;
+         background:
+           radial-gradient(120% 90% at 70% 0%, oklch(0.30 0.03 250), transparent 60%),
+           linear-gradient(160deg, oklch(0.22 0.02 280), oklch(0.14 0.01 240));
+         padding-top: 0; }
+
+  /* a barra de menu do macOS */
+  .menubar {
+    position:fixed; top:0; left:0; right:0; height:26px;
+    background: oklch(0.20 0.01 260 / .55);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid oklch(1 0 0 / .07);
+    display:flex; align-items:center; justify-content:flex-end;
+    gap: 16px; padding: 0 14px; z-index:10;
+  }
+  .menubar .sys { color:oklch(1 0 0 / .8); font-size:12px;
+                  font-family:var(--font-num); }
+  .mtok { display:flex; align-items:center; gap:6px;
+          padding:2px 6px; border-radius:5px;
+          background: oklch(1 0 0 / .16); }  /* estado "aberto/ativo" */
+
+  /* --- POPOVER --- */
+  .pop {
+    position: fixed; top: 32px; right: 12px;
+    width: 340px;
+    background: var(--surface);
+    border-radius: var(--r-3);
+    box-shadow: var(--shadow-pop);
+    overflow: hidden;
+    z-index: 9;
+  }
+  .pop::before {           /* bico */
+    content:""; position:absolute; top:-5px; right:34px;
+    width:10px; height:10px; background:var(--surface);
+    transform: rotate(45deg);
+    border-left:.5px solid oklch(0.45 0.008 60 / .9);
+    border-top:.5px solid oklch(0.45 0.008 60 / .9);
+  }
+
+  /* O veredito, em miniatura. A pergunta é a mesma; só o espaço muda.
+     Este é o texto que o usuário lê 30x por dia. Ele é o produto. */
+  .pv { padding: var(--s-4) var(--s-4) var(--s-3); }
+  .pv h2 { font-size: var(--t-xl); font-weight:600; letter-spacing:-.03em;
+           color: var(--ink-0); line-height:1.05; }
+  .pv .sub { margin-top:6px; font-size:var(--t-xs); color:var(--ink-2);
+             line-height:1.45; }
+  .pv .sub b { color:var(--ink-1); font-weight:500;
+               font-family:var(--font-num); }
+
+  .plist { padding: 0 var(--s-4) var(--s-2); }
+  .prow { padding: 11px 0; border-top:1px solid var(--line-soft);
+          display:grid; grid-template-columns: 1fr auto; gap:4px 10px;
+          align-items:baseline; }
+  .prow .n { font-size:var(--t-sm); color:var(--ink-0); font-weight:500; }
+  .prow .val { font-family:var(--font-num); font-size:var(--t-md);
+               justify-self:end; }
+  .prow .val[data-heat="1"] { color:var(--ink-1); font-weight:500; }
+  .prow .val[data-heat="2"] { color:var(--ink-0); font-weight:600; }
+  .prow .val[data-heat="0"] { color:var(--ink-4); }
+  .prow .lane { grid-column: 1 / -1; margin-top:3px; }
+  .prow .foot { grid-column: 1 / -1; display:flex; justify-content:space-between;
+                margin-top:9px; font-size:var(--t-micro); color:var(--ink-3);
+                font-family:var(--font-num); letter-spacing:.03em; }
+  .prow .track { height: 8px; }        /* compacto: é um relance, não um estudo */
+  .prow .now { top:-5px; bottom:-5px; }
+  .prow .now::before { display:none; }  /* sem agulha no popover: economia de ruído */
+  .prow .band { top:-3px; bottom:-3px; }
+  .prow .ink::after { top:-2px; bottom:-2px; }
+
+  .connect { color:var(--ember); text-decoration:none; font-size:var(--t-xs);
+             border-bottom:1px solid oklch(0.76 .13 48 / .35); }
+
+  .pfoot { border-top:1px solid var(--line);
+           background: var(--surface-hi);
+           padding: 9px var(--s-4);
+           display:flex; align-items:center; justify-content:space-between; }
+  .pfoot .leg { display:flex; gap:12px; }
+  .pfoot .item { display:flex; align-items:center; gap:5px;
+                 font-size:var(--t-micro); color:var(--ink-3);
+                 letter-spacing:.05em; text-transform:uppercase; }
+  .sw { width:16px; height:7px; border-radius:1px; }
+  .sw.m { background:var(--ink-2); }
+  .sw.d { background:repeating-linear-gradient(90deg,
+            var(--ink-2) 0 1px, transparent 1px 3px); }
+  .sw.a { border:1px dashed var(--line); }
+  .pfoot a { color:var(--ink-3); font-size:var(--t-micro); text-decoration:none;
+             text-transform:uppercase; letter-spacing:.06em; }
+
+  .note { position:fixed; left:20px; bottom:20px; max-width:330px;
+          font-size:11px; line-height:1.6; color:oklch(1 0 0 / .5);
+          font-family:var(--font-ui); }
+  .note b { color:oklch(1 0 0 / .8); font-weight:600; }
+</style>
+</head>
+<body>
+
+<!-- a barra de menu real, com o ícone do MyTokens no tamanho real: 22px -->
+<div class="menubar">
+  <span class="mtok">
+    <!-- ÍCONE — 58% de tinta, topo com corte reto = medido -->
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-label="MyTokens 58%">
+      <rect x="6.5" y="3.5" width="9" height="15" rx="2.2"
+            fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.2"/>
+      <path d="M7.6 18.4 h6.8 a1.1 1.1 0 0 0 1.1-1.1 V9.9 H6.5 v7.4 a1.1 1.1 0 0 0 1.1 1.1z"
+            fill="#fff"/>
+      <rect x="6.5" y="9.2" width="9" height="1.6" fill="#fff"/>
+    </svg>
+  </span>
+  <span class="sys">Qui 13 jul  14:47</span>
+</div>
+
+<!-- =================== POPOVER =================== -->
+<div class="pop">
+
+  <div class="pv">
+    <h2>Dá pra continuar.</h2>
+    <p class="sub">
+      Primeiro teto a fechar: <b>Codex</b>, às <b>16:12</b>.
+      No ritmo atual, sobra <b>1 h 43</b>.
+    </p>
+  </div>
+
+  <div class="plist">
+
+    <!-- MEDIDO -->
+    <div class="prow">
+      <span class="n">Codex</span>
+      <span class="val num" data-heat="2">58%</span>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="ink live" style="width:58%"></div>
+          <div class="now" style="left:54%"></div>
+        </div>
+      </div>
+      <div class="foot"><span>medido</span><span>zera 16:12</span></div>
+    </div>
+
+    <!-- DERIVADO -->
+    <div class="prow">
+      <span class="n">Claude Code</span>
+      <span class="val num" data-heat="2"><span class="approx">~</span>61%</span>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="band" style="left:52%; width:18%"></div>
+          <div class="ink derived" style="width:61%"></div>
+          <div class="now" style="left:42%"></div>
+        </div>
+      </div>
+      <!-- o rodapé da linha diz a verdade em texto, além do desenho.
+           dois canais dizendo a mesma coisa = zero chance de mal-entendido -->
+      <div class="foot"><span>estimado · 52–70%</span><span>zera 17:40</span></div>
+    </div>
+
+    <!-- AUSENTE -->
+    <div class="prow">
+      <span class="n">Cursor</span>
+      <span class="val num" data-heat="0">—</span>
+      <div class="lane">
+        <div class="track empty"><div class="now" style="left:54%"></div></div>
+      </div>
+      <div class="foot">
+        <span>sem dado local</span>
+        <a class="connect" href="#">conectar</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="pfoot">
+    <div class="leg">
+      <span class="item"><i class="sw m"></i>Medido</span>
+      <span class="item"><i class="sw d"></i>Derivado</span>
+      <span class="item"><i class="sw a"></i>Sem dado</span>
+    </div>
+    <a href="#">Abrir ⌘↩</a>
+  </div>
+
+</div>
+
+<p class="note">
+  <b>340 px.</b> Mesma gramática da janela, densidade maior: no popover
+  a agulha do "agora" some e a pista cai de 14 px pra 8 px. O que
+  <b>não</b> muda é o reticulado do derivado — se ele sumisse aqui, o app
+  mentiria justamente onde é mais olhado.
+</p>
+
+</body>
+</html>

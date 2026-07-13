@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · mockups</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { padding:64px 40px; background:oklch(0.11 0.004 60); }
+  .wrap { max-width:900px; margin:0 auto; }
+  h1 { font-size:var(--t-3xl); color:var(--ink-0); font-weight:600;
+       letter-spacing:-.035em; }
+  .sub { margin-top:var(--s-3); color:var(--ink-2); font-size:var(--t-md);
+         line-height:1.6; max-width:70ch; }
+  .sub b { color:var(--ink-0); }
+  .warn { margin-top:var(--s-5); padding:var(--s-4); border-radius:var(--r-2);
+          border:1px solid var(--line); background:var(--surface);
+          font-size:var(--t-xs); color:var(--ink-2); line-height:1.6; }
+  .warn b { color:var(--ember); }
+  ul { list-style:none; margin-top:var(--s-6); }
+  li a { display:flex; align-items:baseline; gap:var(--s-4);
+         padding:var(--s-4) 0; border-top:1px solid var(--line-soft);
+         text-decoration:none; }
+  li a:hover { background:oklch(1 0 0 / .02); }
+  li .k { font-family:var(--font-num); font-size:var(--t-xs);
+          color:var(--ink-4); width:24px; }
+  li .t { font-size:var(--t-md); color:var(--ink-0); font-weight:500;
+          width:230px; }
+  li .d { font-size:var(--t-xs); color:var(--ink-2); flex:1; line-height:1.5; }
+  li a:hover .t { color:var(--ember); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MyTokens</h1>
+  <p class="sub">
+    Mockups da <b>Fase 1</b>. Direção escolhida: <b>Bancada</b>.
+    Tokens vivem em <code>bancada.css</code>; o porquê de cada um está em
+    <code>docs/UI-SPEC.md</code>.
+  </p>
+
+  <div class="warn">
+    <b>Isto é descartável.</b> Serve pra DECIDIR, não pra virar produção. O CSS
+    aqui usa <code>%</code> chumbado onde o app vai usar dado real. O que <b>não</b> é
+    descartável: os tokens, a gramática dos três estados de verdade, e o ícone.
+  </div>
+
+  <ul>
+    <li><a href="00-direcoes.html">
+      <span class="k">00</span><span class="t">Duas direções</span>
+      <span class="d">Bancada × Manchete, mesmo dado. Por que A ganhou e o que roubei de B.</span></a></li>
+    <li><a href="01-janela-principal.html">
+      <span class="k">01</span><span class="t">Janela principal</span>
+      <span class="d">O veredito, as três pistas no eixo de 5 h, os 4 buckets crus, a procedência.</span></a></li>
+    <li><a href="02-popover.html">
+      <span class="k">02</span><span class="t">Popover da barra</span>
+      <span class="d">340 px sobre um desktop de verdade. A leitura de 30x por dia.</span></a></li>
+    <li><a href="03-vazio.html">
+      <span class="k">03</span><span class="t">Primeiro boot</span>
+      <span class="d">Vazio não é void: é o instrumento ligado, provando que já sabe onde procurar.</span></a></li>
+    <li><a href="04-85-porcento.html">
+      <span class="k">04</span><span class="t">85% consumido</span>
+      <span class="d">Avisar sem dar pânico. O alarme é a projeção rompendo o trilho, não a barra vermelha.</span></a></li>
+    <li><a href="05-reset.html">
+      <span class="k">05</span><span class="t">O reset da janela</span>
+      <span class="d">900 ms de dreno. Encher leva 420 ms — esvaziar tem que levar mais.</span></a></li>
+    <li><a href="06-icone.html">
+      <span class="k">06</span><span class="t">Ícone da barra</span>
+      <span class="d">Proveta em 22 px, monocromática, 8 estados, dark e light. O elemento mais difícil.</span></a></li>
+  </ul>
+</div>
+</body>
+</html>

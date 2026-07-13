@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · ícone da barra de menu</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { padding:48px; background:oklch(0.12 0.004 60); }
+  @media (prefers-color-scheme: light){ body{ background:oklch(0.93 0.004 80);} }
+  .wrap { max-width:1080px; margin:0 auto; }
+  h1 { font-size:var(--t-2xl); color:var(--ink-0); font-weight:600;
+       letter-spacing:-.03em; margin-bottom:var(--s-3); }
+  .lede { color:var(--ink-2); font-size:var(--t-md); line-height:1.55;
+          max-width:70ch; margin-bottom:var(--s-6); }
+  .lede b { color:var(--ink-0); font-weight:600; }
+  h2 { font-size:var(--t-micro); text-transform:uppercase; letter-spacing:.1em;
+       color:var(--ink-3); margin:var(--s-7) 0 var(--s-4);
+       padding-bottom:var(--s-2); border-bottom:1px solid var(--line-soft); }
+
+  /* ---- barras de menu simuladas: o teste real é ESTE ---- */
+  .bar { display:flex; align-items:center; justify-content:flex-end; gap:18px;
+         height:26px; padding:0 14px; border-radius:6px; margin-bottom:10px;
+         font-family:var(--font-num); font-size:12px; }
+  .bar.dark  { background:oklch(0.22 0.02 260); color:oklch(1 0 0 / .82); }
+  .bar.light { background:oklch(0.93 0.005 260); color:oklch(0.25 0.01 260 / .85); }
+  .bar.dark  svg { color:#fff; }         /* template image: macOS pinta de branco */
+  .bar.light svg { color:#000; }         /* ...e de preto na barra clara          */
+  .bar .slot { display:flex; align-items:center; gap:2px; }
+  /* bateria real do sistema, pra provar que NÃO se confunde com o nosso ícone:
+     ela é DEITADA e tem bico. O nosso é EM PÉ e tem graduação. */
+  .batt { opacity:.75; }
+
+  .cap { font-size:var(--t-xs); color:var(--ink-3); margin:0 0 var(--s-5); }
+
+  /* ---- grade de estados, ampliada 5x ---- */
+  .grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--s-5); }
+  .st { background:var(--surface); border:1px solid var(--line-soft);
+        border-radius:var(--r-2); padding:var(--s-4); }
+  .st .zoom { display:flex; align-items:center; justify-content:center;
+              height:132px; background:var(--canvas); border-radius:var(--r-1);
+              /* grade de pixel: prova que os traços caem em pixel inteiro */
+              background-image:
+                linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+              background-size: 5px 5px; }
+  .st .zoom svg { color:var(--ink-0); }
+  .st .real { display:flex; align-items:center; gap:8px; margin-top:var(--s-3);
+              padding-top:var(--s-3); border-top:1px solid var(--line-soft); }
+  .st .real svg { color:var(--ink-0); }
+  .st .real span { font-size:var(--t-micro); color:var(--ink-4);
+                   font-family:var(--font-num); }
+  .st .nm { font-size:var(--t-sm); color:var(--ink-0); font-weight:500;
+            margin-top:var(--s-3); }
+  .st .why { font-size:var(--t-xs); color:var(--ink-2); line-height:1.5;
+             margin-top:5px; }
+  .st .why b { color:var(--ink-1); font-weight:500; }
+
+  /* dreno do ícone: mesma curva e mesma duração do dreno da pista.
+     o ícone e a janela têm que esvaziar JUNTOS ou o app se contradiz. */
+  @keyframes iconDrain {
+    0%       { transform:translateY(0);     }
+    100%     { transform:translateY(13.6px);}
+  }
+  .drain-ink { animation: iconDrain var(--dur-reset) var(--ease-drain) infinite alternate; }
+
+  .rules { display:grid; grid-template-columns:1fr 1fr; gap:var(--s-5); }
+  .rule-card { background:var(--surface); border:1px solid var(--line-soft);
+    border-radius:var(--r-2); padding:var(--s-5); }
+  .rule-card h3 { font-size:var(--t-sm); color:var(--ink-0); font-weight:600;
+                  margin-bottom:8px; }
+  .rule-card p { font-size:var(--t-xs); color:var(--ink-2); line-height:1.6; }
+  .rule-card p b { color:var(--ink-1); }
+  .kill { border-color:oklch(0.68 0.195 32 / .35); }
+  .kill h3 { color:var(--ember-hot); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>O ícone</h1>
+<p class="lede">
+  22 px, monocromático, template image (o macOS pinta de preto na barra clara e
+  de branco na escura — <b>não tenho controle de cor, só de forma</b>). É o elemento
+  mais visto e menos olhado do app: precisa entregar o estado em <b>meio segundo</b>,
+  com o olho de raspão.
+  <br><br>
+  A forma é uma <b>proveta graduada</b>: cilindro em pé, traços de graduação na
+  lateral, tinta subindo. Escolhi proveta e não pilha por três motivos —
+  (1) pilha no macOS é <b>deitada e com bico</b>, a nossa é <b>em pé e sem bico</b>,
+  então nunca se confundem lado a lado;
+  (2) proveta é objeto de <b>medição</b>, que é literalmente o que o app faz;
+  (3) tinta subindo = consumo, e <b>densidade de tinta é a tensão</b> — quanto mais
+  perto de estourar, mais <b>preto</b> o ícone fica. O alarme é gramatura, não cor.
+  Sem cor eu não teria como fazer semáforo nem se quisesse — e isso é uma vantagem.
+</p>
+
+<h2>Tamanho real, nas duas barras, ao lado da bateria do sistema</h2>
+
+<div class="bar dark">
+  <div class="slot">
+    <!-- 58% medido -->
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+      <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+            stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+      <clipPath id="c1"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+      <g clip-path="url(#c1)">
+        <rect x="7" y="10.2" width="10" height="9" fill="currentColor"/>
+      </g>
+      <rect x="7" y="9.5" width="10" height="1.7" fill="currentColor"/>
+    </svg>
+  </div>
+  <span>58%</span>
+  <!-- bateria do sistema: deitada, com bico. Note a diferença de silhueta. -->
+  <svg class="batt" width="26" height="14" viewBox="0 0 26 14" fill="none">
+    <rect x=".7" y="2.7" width="20" height="9" rx="2.6" stroke="currentColor" stroke-width="1" opacity=".5"/>
+    <rect x="2.3" y="4.3" width="12" height="5.8" rx="1.2" fill="currentColor"/>
+    <path d="M22.4 5.6v3.2a2.2 2.2 0 0 0 0-3.2z" fill="currentColor" opacity=".5"/>
+  </svg>
+  <span>Qui 13 jul 14:47</span>
+</div>
+
+<div class="bar light">
+  <div class="slot">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+      <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+            stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+      <clipPath id="c2"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+      <g clip-path="url(#c2)">
+        <rect x="7" y="10.2" width="10" height="9" fill="currentColor"/>
+      </g>
+      <rect x="7" y="9.5" width="10" height="1.7" fill="currentColor"/>
+    </svg>
+  </div>
+  <span>58%</span>
+  <svg class="batt" width="26" height="14" viewBox="0 0 26 14" fill="none">
+    <rect x=".7" y="2.7" width="20" height="9" rx="2.6" stroke="currentColor" stroke-width="1" opacity=".5"/>
+    <rect x="2.3" y="4.3" width="12" height="5.8" rx="1.2" fill="currentColor"/>
+    <path d="M22.4 5.6v3.2a2.2 2.2 0 0 0 0-3.2z" fill="currentColor" opacity=".5"/>
+  </svg>
+  <span>Qui 13 jul 14:47</span>
+</div>
+<p class="cap">
+  Em pé × deitada, com graduação × com bico. Nem em 22 px elas se confundem.
+</p>
+
+<h2>Os estados</h2>
+<div class="grid">
+
+  <!-- 1. SEM DADO -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".3"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+              stroke="currentColor" stroke-width="1.1" stroke-dasharray="2 1.8" opacity=".55"/>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".3"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+              stroke="currentColor" stroke-width="1.1" stroke-dasharray="2 1.8" opacity=".55"/>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Sem dado</div>
+    <p class="why">Contorno <b>tracejado</b>, zero tinta. Vazio nunca é preenchido —
+      um ícone com pouca tinta afirmaria "gastei pouco", que é mentira diferente
+      de "não sei".</p>
+  </div>
+
+  <!-- 2. MEDIDO, FOLGA -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+              stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z2"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z2)"><rect x="7" y="14.6" width="10" height="5" fill="currentColor"/></g>
+        <rect x="7" y="13.9" width="10" height="1.7" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z2b"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z2b)"><rect x="7" y="14.6" width="10" height="5" fill="currentColor"/></g>
+        <rect x="7" y="13.9" width="10" height="1.7" fill="currentColor"/>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Medido · 28%</div>
+    <p class="why">Tinta sólida, <b>topo com corte reto</b>. A borda dura é a
+      promessa: esse número veio da fonte, não de mim.</p>
+  </div>
+
+  <!-- 3. DERIVADO -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+              stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z3"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z3)">
+          <!-- tinta reticulada: mesmo pente da barra do app, em pé -->
+          <rect x="7" y="10.2" width="10" height="9" fill="currentColor"/>
+          <path d="M8 10.2v9M10 10.2v9M12 10.2v9M14 10.2v9M16 10.2v9"
+                stroke="var(--surface)" stroke-width="1"/>
+        </g>
+        <!-- topo PONTILHADO: a borda não é uma promessa -->
+        <path d="M7 10.4h1.6M10.2 10.4h1.6M13.4 10.4h1.6M16.6 10.4h.4"
+              stroke="currentColor" stroke-width="1.8"/>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z3b"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z3b)">
+          <rect x="7" y="10.2" width="10" height="9" fill="currentColor"/>
+          <path d="M8 10.2v9M10 10.2v9M12 10.2v9M14 10.2v9M16 10.2v9" stroke="var(--surface)" stroke-width="1"/>
+        </g>
+        <path d="M7 10.4h1.6M10.2 10.4h1.6M13.4 10.4h1.6M16.6 10.4h.4" stroke="currentColor" stroke-width="1.8"/>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Derivado · ~61%</div>
+    <p class="why">Tinta <b>reticulada</b>, topo <b>pontilhado</b>. Em 22 px você não
+      lê o pente — mas <b>sente</b> que essa tinta é mais rala que a sólida. E é
+      exatamente isso que ela é.</p>
+  </div>
+
+  <!-- 4. 85% -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4"
+              stroke="currentColor" stroke-width="1.1" opacity=".8"/>
+        <clipPath id="z4"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z4)"><rect x="7" y="6" width="10" height="13" fill="currentColor"/></g>
+        <rect x="7" y="5.3" width="10" height="1.7" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".8"/>
+        <clipPath id="z4b"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z4b)"><rect x="7" y="6" width="10" height="13" fill="currentColor"/></g>
+        <rect x="7" y="5.3" width="10" height="1.7" fill="currentColor"/>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Quase lá · 85%</div>
+    <p class="why">Nada muda de cor <b>porque não pode</b>: template image é
+      monocromático. O aviso é <b>massa de tinta</b> — o ícone virou um bloco
+      quase sólido. Você vê de canto de olho sem saber que viu.</p>
+  </div>
+
+  <!-- 5. ESTOURADO -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <!-- a "borda" acima da boca: transbordou -->
+        <rect x="6" y="1.2" width="12" height="1.6" fill="currentColor"/>
+        <clipPath id="z5"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z5)"><rect x="7" y="3" width="10" height="16" fill="currentColor"/></g>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="6" y="1.2" width="12" height="1.6" fill="currentColor"/>
+        <clipPath id="z5b"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z5b)"><rect x="7" y="3" width="10" height="16" fill="currentColor"/></g>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Estourou · 100%</div>
+    <p class="why">Sólido, sem contorno visível, mais uma <b>régua acima da boca</b>:
+      passou do vaso. Silhueta única no app inteiro — impossível confundir com 85%.</p>
+  </div>
+
+  <!-- 6. RESET (animado) -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z6"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z6)" class="drain-ink">
+          <rect x="7" y="5.3" width="10" height="14" fill="currentColor"/>
+          <rect x="7" y="4.6" width="10" height="1.7" fill="currentColor"/>
+        </g>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z6b"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z6b)" class="drain-ink">
+          <rect x="7" y="5.3" width="10" height="14" fill="currentColor"/>
+          <rect x="7" y="4.6" width="10" height="1.7" fill="currentColor"/>
+        </g>
+      </svg><span>22 px · 900 ms</span>
+    </div>
+    <div class="nm">Reset</div>
+    <p class="why">A tinta <b>desce</b>, não some. Mesma curva e mesma duração do
+      dreno da janela (900 ms, <b>ease-drain</b>). Se o ícone e a janela não
+      esvaziassem juntos, o app se contradiria na frente do usuário.</p>
+  </div>
+
+  <!-- 7. PAUSADO -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none" opacity=".42">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" opacity=".42">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1"/>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Pausado / sem leitura</div>
+    <p class="why">Contorno <b>sólido</b>, mas o ícone inteiro cai pra 42% de alfa.
+      Diferente de "sem dado" (tracejado): aqui o vaso existe e está íntegro —
+      quem parou <b>fui eu</b>, não a fonte.</p>
+  </div>
+
+  <!-- 8. MISTO -->
+  <div class="st">
+    <div class="zoom">
+      <svg width="110" height="110" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z8"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z8)"><rect x="7" y="10.2" width="10" height="9" fill="currentColor"/></g>
+        <rect x="7" y="9.5" width="10" height="1.7" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="real">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 8h2M4 11h2M4 14h2" stroke="currentColor" stroke-width="1" opacity=".55"/>
+        <rect x="7.5" y="3.5" width="9" height="15" rx="2.4" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+        <clipPath id="z8b"><rect x="7.5" y="3.5" width="9" height="15" rx="2.4"/></clipPath>
+        <g clip-path="url(#z8b)"><rect x="7" y="10.2" width="10" height="9" fill="currentColor"/></g>
+        <rect x="7" y="9.5" width="10" height="1.7" fill="currentColor"/>
+      </svg><span>22 px</span>
+    </div>
+    <div class="nm">Regra de mistura</div>
+    <p class="why">O ícone mostra <b>um só</b> provedor: o que fecha primeiro
+      (menor folga). Três provetas em 22 px não é informação, é sujeira. A
+      textura do topo é a do provedor escolhido — se o mais apertado for o
+      Claude, o topo do ícone vira pontilhado.</p>
+  </div>
+
+</div>
+
+<h2>Regras que o Vitral não pode quebrar</h2>
+<div class="rules">
+  <div class="rule-card">
+    <h3>Geometria em pixel inteiro</h3>
+    <p>Contorno em <b>x .5</b> (7.5, 3.5) pra o traço de 1,1 px cair em cima do pixel,
+      não entre dois. Tinta e topo em coordenada <b>inteira</b>. Em 22 px, meio pixel
+      de erro vira um cinza borrado e o ícone perde o corte reto — que é justamente
+      o sinal de "medido".</p>
+  </div>
+  <div class="rule-card">
+    <h3>Template image, sempre</h3>
+    <p>Exportar como <b>PNG preto + alfa</b>, @1x (22×22) e @2x (44×44), com
+      <code>isTemplate = true</code>. O macOS inverte sozinho. <b>Nunca</b> embutir cor:
+      um ícone colorido na barra ignora o realce de seleção e fica ilegível quando
+      o usuário clica nele.</p>
+  </div>
+  <div class="rule-card">
+    <h3>A tinta é degrau de 5%</h3>
+    <p>Nada de animar 1% em 1%. Em 22 px, 1% são <b>0,15 px</b>: invisível e ainda
+      força repaint a cada evento do disco. Degraus de 5% (20 níveis) já dão mais
+      resolução do que o olho tira de raspão.</p>
+  </div>
+  <div class="rule-card kill">
+    <h3>Morte súbita</h3>
+    <p>Sem cor. Sem badge de contagem. Sem emoji. Sem piscar — <b>piscar é o
+      semáforo dos preguiçosos que não têm cor disponível</b>. Se estourou, a
+      resposta é a régua acima da boca, que fica lá, parada, até você resolver.</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

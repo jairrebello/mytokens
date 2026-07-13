@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · duas direções</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { padding:48px 40px; background:oklch(0.11 0.004 60); }
+  .wrap { max-width:1240px; margin:0 auto; }
+  .head { margin-bottom:var(--s-7); }
+  .head h1 { font-size:var(--t-2xl); color:var(--ink-0); font-weight:600;
+             letter-spacing:-.03em; }
+  .head p { margin-top:var(--s-3); color:var(--ink-2); font-size:var(--t-md);
+            max-width:78ch; line-height:1.6; }
+  .head p b { color:var(--ink-0); }
+
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:var(--s-6); align-items:start; }
+
+  .col > .tag { display:flex; align-items:baseline; gap:10px; margin-bottom:var(--s-3); }
+  .col .tag .k { font-size:var(--t-micro); letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--ink-4); font-family:var(--font-num); }
+  .col .tag .t { font-size:var(--t-lg); color:var(--ink-0); font-weight:600;
+                 letter-spacing:-.02em; }
+  .col .tag .verdict-badge { margin-left:auto; font-size:var(--t-micro);
+    text-transform:uppercase; letter-spacing:.08em; padding:3px 8px;
+    border-radius:var(--r-1); }
+  .win-a .verdict-badge, .badge-go { background:var(--ember); color:oklch(0.15 0 0);
+    font-weight:600; }
+  .badge-no { border:1px solid var(--line); color:var(--ink-3); }
+  .col > .pitch { font-size:var(--t-xs); color:var(--ink-2); line-height:1.6;
+                  margin-bottom:var(--s-4); min-height:56px; }
+  .col > .pitch b { color:var(--ink-1); }
+
+  .frame { border-radius:10px; overflow:hidden; border:1px solid var(--line); }
+
+  /* =========================================================
+     DIREÇÃO A — "BANCADA"
+     Instrumento. Escuro, denso, fio de cabelo, número em mono.
+     Você LÊ O MOSTRADOR. O app não fala; ele mede.
+     ========================================================= */
+  .A { background:var(--canvas); padding:var(--s-5); }
+  .A .verd h2 { font-size:32px; font-weight:600; letter-spacing:-.03em;
+                color:var(--ink-0); line-height:1; }
+  .A .verd p { margin-top:10px; font-size:var(--t-sm); color:var(--ink-2);
+               line-height:1.5; }
+  .A .verd p b { color:var(--ink-1); font-weight:500; }
+  .A .bench { margin-top:var(--s-5); }
+  .A .row { display:grid; grid-template-columns:96px 1fr 74px; gap:12px;
+            align-items:center; padding:13px 0; border-top:1px solid var(--line-soft); }
+  .A .n { font-size:var(--t-sm); color:var(--ink-0); font-weight:500; }
+  .A .lane { position:relative; padding:8px 0; }
+  .A .val { text-align:right; font-family:var(--font-num); font-size:var(--t-md); }
+  .A .val.m  { color:var(--ink-0); font-weight:600; }
+  .A .val.d  { color:var(--ink-1); font-weight:500; }
+  .A .val.a  { color:var(--ink-4); }
+  .A .track { height:10px; }
+  .A .now { top:-6px; bottom:-6px; }
+  .A .now::before { display:none; }
+  .A .band { top:-3px; bottom:-3px; }
+  .A .leg { margin-top:var(--s-4); padding-top:var(--s-3);
+            border-top:1px solid var(--line); display:flex; gap:16px; }
+  .A .leg span { font-size:var(--t-micro); color:var(--ink-4);
+                 letter-spacing:.06em; text-transform:uppercase;
+                 display:flex; align-items:center; gap:6px; }
+  .A .sw { width:20px; height:8px; }
+  .A .sw.m { background:var(--ink-1); }
+  .A .sw.d { background:repeating-linear-gradient(90deg,var(--ink-1) 0 1px,transparent 1px 3px); }
+  .A .sw.a { border:1px dashed var(--line); }
+
+  /* =========================================================
+     DIREÇÃO B — "MANCHETE"
+     Editorial. Papel, tipo pesada, nenhum gráfico de verdade.
+     Você LÊ A FRASE. O app não mede; ele te CONTA.
+     A certeza mora na TIPOGRAFIA:
+       medido   → romano preto, sublinhado sólido
+       derivado → itálico cinza, til, sublinhado pontilhado
+       ausente  → sem número, sem sublinhado, só uma lacuna com fio
+     O "gráfico" é o sublinhado. Comprimento = valor. Só isso.
+     ========================================================= */
+  .B {
+    background: #F4F1EA;                       /* papel, não branco de tela */
+    color: #17150F;
+    padding: 30px 32px 26px;
+    font-family: "Iowan Old Style", "Palatino", "Georgia", serif;
+  }
+  .B .kicker { font-family:var(--font-ui); font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; color:#8A8272; font-weight:600;
+    padding-bottom:9px; border-bottom:2px solid #17150F; }
+  .B h2 { font-size:40px; line-height:1.02; letter-spacing:-.02em;
+          font-weight:700; margin-top:16px; }
+  .B .dek { margin-top:10px; font-size:15px; line-height:1.5; color:#4A4437; }
+  .B .dek b { color:#17150F; font-weight:700; }
+
+  .B .ledger { margin-top:24px; border-top:1px solid #17150F; }
+  .B .e { display:flex; align-items:baseline; gap:14px;
+          padding:14px 0; border-bottom:1px solid #D8D2C4; }
+  .B .e .who { font-family:var(--font-ui); font-size:12px; font-weight:600;
+               letter-spacing:.02em; width:92px; flex:none; color:#17150F; }
+  .B .e .said { font-size:15px; line-height:1.4; color:#4A4437; flex:1; }
+
+  /* o número É o gráfico. o sublinhado é o gráfico. não tem mais nada. */
+  .B .fig { position:relative; display:inline-block; font-weight:700;
+            font-size:19px; color:#17150F; padding-bottom:5px; }
+  .B .fig::after { content:""; position:absolute; left:0; bottom:0; height:3px;
+                   background:#17150F; }
+  .B .fig[data-w="58"]::after { width:58%; }   /* comprimento = valor. literalmente. */
+  .B .fig[data-w="85"]::after { width:85%; }
+
+  /* DERIVADO: itálico + til + sublinhado pontilhado. Nenhum leitor
+     de português confunde "61" com "~61" em itálico. */
+  .B .fig.der { font-style:italic; color:#5C5545; font-weight:600; }
+  .B .fig.der::after {
+    width:61%;
+    background: repeating-linear-gradient(90deg, #5C5545 0 2px, transparent 2px 4px);
+    height:2px;
+  }
+  .B .fig .band { font-family:var(--font-ui); font-size:10px; color:#8A8272;
+                  font-style:normal; font-weight:500; margin-left:5px; }
+
+  /* AUSENTE: uma lacuna. o fio da lacuna diz "aqui caberia um número". */
+  .B .gap { display:inline-block; width:52px; border-bottom:2px dashed #B5AE9C;
+            height:16px; }
+  .B .link { font-family:var(--font-ui); font-size:11px; color:#9A3D14;
+             border-bottom:1px solid #9A3D1455; text-decoration:none; }
+
+  .B .colofon { margin-top:18px; font-family:var(--font-ui); font-size:10px;
+                letter-spacing:.05em; text-transform:uppercase; color:#8A8272;
+                display:flex; gap:16px; }
+
+  /* ---- veredito da comparação ---- */
+  .verdict-box { margin-top:var(--s-7); display:grid;
+                 grid-template-columns:1fr 1fr; gap:var(--s-5); }
+  .vb { border:1px solid var(--line-soft); border-radius:var(--r-2);
+        background:var(--surface); padding:var(--s-5); }
+  .vb.win { border-color:var(--ember); }
+  .vb h3 { font-size:var(--t-md); color:var(--ink-0); font-weight:600;
+           margin-bottom:var(--s-3); display:flex; align-items:center; gap:10px; }
+  .vb ul { list-style:none; display:flex; flex-direction:column; gap:9px; }
+  .vb li { font-size:var(--t-xs); color:var(--ink-2); line-height:1.55;
+           padding-left:16px; position:relative; }
+  .vb li::before { content:"—"; position:absolute; left:0; color:var(--ink-4); }
+  .vb li.bad::before { content:"×"; color:var(--ember-hot); font-weight:700; }
+  .vb li b { color:var(--ink-1); font-weight:500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="head">
+  <h1>Duas direções. Mesmo dado, mesma hora, mesma verdade.</h1>
+  <p>
+    Codex 58% <b>medido</b> · Claude ~61% <b>derivado</b> · Cursor <b>ausente</b>.
+    A pergunta não é "qual é mais bonita" — é <b>qual carrega a assimetria sem
+    mentir e sem virar colcha de retalhos</b>. As duas resolvem. Uma resolve melhor.
+  </p>
+</div>
+
+<div class="duo">
+
+  <!-- ============ A ============ -->
+  <div class="col win-a">
+    <div class="tag">
+      <span class="k">A</span>
+      <span class="t">Bancada</span>
+      <span class="verdict-badge badge-go">recomendada</span>
+    </div>
+    <p class="pitch">
+      Instrumento de medição. Escuro, denso, fio de cabelo, número em mono.
+      Uma pista de 5 h com <b>duas leituras</b>: a tinta (cota queimada) e o cursor
+      (tempo decorrido). <b>O vão entre elas é a resposta.</b> Você lê o mostrador.
+    </p>
+
+    <div class="frame">
+      <div class="A">
+        <div class="verd">
+          <h2>Dá pra continuar.</h2>
+          <p>Primeiro teto a fechar: <b>Codex</b>, 16:12. No ritmo atual sobra <b>1 h 43</b>.</p>
+        </div>
+
+        <div class="bench">
+          <div class="row">
+            <span class="n">Codex</span>
+            <div class="lane">
+              <div class="track">
+                <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+                  <i style="left:60%"></i><i style="left:80%"></i></div>
+                <div class="ink live" style="width:58%"></div>
+                <div class="now" style="left:54%"></div>
+              </div>
+            </div>
+            <span class="val m">58%</span>
+          </div>
+
+          <div class="row">
+            <span class="n">Claude</span>
+            <div class="lane">
+              <div class="track">
+                <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+                  <i style="left:60%"></i><i style="left:80%"></i></div>
+                <div class="band" style="left:52%;width:18%"></div>
+                <div class="ink derived" style="width:61%"></div>
+                <div class="now" style="left:42%"></div>
+              </div>
+            </div>
+            <span class="val d">~61%</span>
+          </div>
+
+          <div class="row">
+            <span class="n">Cursor</span>
+            <div class="lane">
+              <div class="track empty"><div class="now" style="left:54%"></div></div>
+            </div>
+            <span class="val a">—</span>
+          </div>
+        </div>
+
+        <div class="leg">
+          <span><i class="sw m"></i>Medido</span>
+          <span><i class="sw d"></i>Derivado</span>
+          <span><i class="sw a"></i>Sem dado</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ B ============ -->
+  <div class="col">
+    <div class="tag">
+      <span class="k">B</span>
+      <span class="t">Manchete</span>
+      <span class="verdict-badge badge-no">descartada</span>
+    </div>
+    <p class="pitch">
+      Editorial. Papel, tipo pesada, <b>zero gráfico</b>. A certeza mora na
+      tipografia: romano+sólido = medido, itálico+til+pontilhado = derivado,
+      lacuna com fio = ausente. O único "gráfico" é o <b>sublinhado</b>, cujo
+      comprimento é o valor. Você lê a frase.
+    </p>
+
+    <div class="frame">
+      <div class="B">
+        <div class="kicker">MyTokens · 14:47 · Janela de 5 h</div>
+        <h2>Dá pra continuar<br>até as 16:12.</h2>
+        <p class="dek">
+          O <b>Codex</b> é o teto que fecha primeiro. No ritmo dos últimos
+          20 minutos, ele encosta <b>22 minutos antes</b> da janela virar.
+        </p>
+
+        <div class="ledger">
+          <div class="e">
+            <span class="who">CODEX</span>
+            <span class="said">
+              queimou <span class="fig" data-w="58">58%</span> da janela.
+              Zera às 16:12.
+            </span>
+          </div>
+
+          <div class="e">
+            <span class="who">CLAUDE CODE</span>
+            <span class="said">
+              queimou, <em>pelo meu cálculo</em>,
+              <span class="fig der" data-w="61">~61%<span class="band">52–70</span></span>.
+              Zera às 17:40.
+            </span>
+          </div>
+
+          <div class="e">
+            <span class="who">CURSOR</span>
+            <span class="said">
+              não me conta nada. <span class="gap"></span>
+              <a class="link" href="#">conectar conta</a>
+            </span>
+          </div>
+        </div>
+
+        <div class="colofon">
+          <span>Romano = medido</span>
+          <span>Itálico = calculado por nós</span>
+          <span>Lacuna = sem fonte</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ POR QUE A GANHA ============ -->
+<div class="verdict-box">
+  <div class="vb win">
+    <h3>Por que A ganha</h3>
+    <ul>
+      <li><b>Escala pra n provedores.</b> Chega o Gemini, o Copilot, o que for:
+        é mais uma pista. B teria que escrever mais uma frase — e 6 frases
+        empilhadas não são "de relance", são <b>leitura</b>.</li>
+      <li><b>O vão tinta↔cursor é uma ideia que só A tem.</b> É o que transforma
+        um medidor num <b>conselho</b>: gasto atrás do relógio = folga; na frente =
+        você acaba antes. B tem que dizer isso em palavras; A deixa você
+        <b>ver</b>.</li>
+      <li><b>O ícone de 22 px nasce de A.</b> A proveta é a pista em pé.
+        De B não sai ícone nenhum — tipografia não cabe em 22 px.</li>
+      <li><b>Alarme sem semáforo.</b> A projeção rompendo o trilho é geometria,
+        não cor. Em B, "aperta o passo" é só uma frase mais dura, e frase dura
+        <b>a gente para de ler na terceira vez</b>.</li>
+      <li><b>Fica bonito parado.</b> O app vive aberto num segundo monitor.
+        Manchete que não muda vira jornal de ontem.</li>
+    </ul>
+  </div>
+
+  <div class="vb">
+    <h3>O que roubei de B (e por que)</h3>
+    <ul>
+      <li><b>O veredito em uma frase, no topo, em 54 px.</b> B estava certa numa
+        coisa: <b>a resposta vem antes da prova</b>. A janela principal abre com
+        "Dá pra continuar." e só depois mostra as pistas. Sem isso, A era só um
+        mostrador bonito — e mostrador ainda exige que você interprete.</li>
+      <li><b>O til.</b> <b>~61%</b> é o reticulado dito em outro canal. Textura
+        para o olho de raspão, til para o olho que para. Dois canais dizendo
+        a mesma coisa é o que faz um mal-entendido virar impossível.</li>
+      <li class="bad"><b>Não</b> roubei o itálico: em número, itálico com
+        algarismo tabular briga com o alinhamento e a coluna dança.</li>
+      <li class="bad"><b>Não</b> roubei o papel: o app fica na barra de menu
+        sobre o desktop. Fundo claro à noite, ao lado de um terminal escuro,
+        é uma lanterna na cara.</li>
+    </ul>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

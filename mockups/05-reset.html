@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · o reset da janela de 5 h</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { display:flex; flex-direction:column; align-items:center; justify-content:center;
+         min-height:100vh; padding:40px; gap:24px; background:oklch(0.10 0.004 60); }
+  @media (prefers-color-scheme: light){ body{ background:oklch(0.90 0.004 80);} }
+
+  .win { width:940px; background:var(--canvas); border:1px solid var(--line);
+         border-radius:12px; overflow:hidden;
+         box-shadow:0 40px 90px -20px oklch(0 0 0 / .6); }
+
+  .titlebar { height:38px; display:flex; align-items:center; gap:var(--s-2);
+    padding:0 var(--s-4); border-bottom:1px solid var(--line-soft); background:var(--surface); }
+  .dot { width:11px; height:11px; border-radius:50%; background:var(--track); }
+  .titlebar .name { margin-left:auto; margin-right:auto; font-size:var(--t-xs);
+    color:var(--ink-3); letter-spacing:.14em; text-transform:uppercase; font-weight:600; }
+
+  /* ===================== O RESET =====================
+     Isso é ALÍVIO, e alívio se desenha com ESPAÇO e com TEMPO.
+     A regra do movimento: o dreno tem que ser mais LENTO que o
+     avanço (900 ms contra 420 ms). Encher é rotina; esvaziar é
+     acontecimento. Se drenasse rápido, o alívio passava batido.
+
+     Sequência (total 1.500 ms):
+       0      trava. o número congela, a agulha some.
+       120    a tinta DRENA da direita pra esquerda (900 ms, ease-drain:
+              puxa devagar, solta, assenta). Volume saindo, não barra encolhendo.
+       700    o trilho respira: um clarão fraco corre com o dreno.
+       1.020  a headline troca. só DEPOIS que a pista esvaziou.
+       1.180  o novo relógio entra, subindo 6 px.
+     Nada pisca. Nada quica. Nada faz confete. Isso não é uma
+     conquista — é o dia recomeçando. */
+  .verdict { padding:var(--s-7) var(--s-6) var(--s-5); min-height:186px; }
+  .verdict h1 { font-size:var(--t-3xl); font-weight:600; letter-spacing:-.035em;
+                color:var(--ink-0); line-height:1; }
+  .verdict p { margin-top:var(--s-3); font-size:var(--t-md); color:var(--ink-2);
+               max-width:60ch; line-height:1.45; }
+  .verdict p b { color:var(--ink-1); font-weight:500; }
+
+  .old, .new { display:block; }
+  .old { animation: fadeOut 260ms var(--ease-out) 1020ms both; }
+  .new { animation: riseIn 420ms var(--ease-out) 1180ms both; }
+  @keyframes fadeOut { to { opacity:0; transform:translateY(-4px);
+                            filter:blur(2px); } }
+  @keyframes riseIn  { from { opacity:0; transform:translateY(8px); }
+                       to   { opacity:1; transform:translateY(0); } }
+  .new { position:absolute; }
+  .stack { position:relative; }
+
+  .clockline { display:flex; align-items:baseline; gap:var(--s-3); margin-top:var(--s-5); }
+  .clockline .big { font-family:var(--font-num); font-size:var(--t-lg); color:var(--ink-1); }
+
+  .bench { padding:0 var(--s-6) var(--s-5); }
+  .axis, .row { display:grid; grid-template-columns:148px 1fr 132px;
+                align-items:center; gap:var(--s-4); }
+  .axis { padding-bottom:var(--s-2); }
+  .axis .scale { position:relative; height:12px; }
+  .axis .scale span { position:absolute; top:0; transform:translateX(-50%);
+    font-size:var(--t-micro); color:var(--ink-4); font-family:var(--font-num); }
+  .row { padding:var(--s-4) 0; border-top:1px solid var(--line-soft); }
+  .who { display:flex; flex-direction:column; gap:5px; }
+  .who .n { font-size:var(--t-md); color:var(--ink-0); font-weight:500; }
+  .who .m { font-size:var(--t-micro); color:var(--ink-3); font-family:var(--font-num); }
+  .lane { position:relative; padding:12px 0; }
+  .read { text-align:right; display:flex; flex-direction:column; gap:2px; }
+  .read .sub { font-size:var(--t-xs); color:var(--ink-3); font-family:var(--font-num); }
+  .read .sub b { color:var(--ink-2); font-weight:500; }
+  .read .dash { font-family:var(--font-num); font-size:var(--t-xl); color:var(--ink-4); }
+
+  /* --- O DRENO. O elemento mais importante deste arquivo. --- */
+  .ink.draining {
+    animation: drain var(--dur-reset) var(--ease-drain) 120ms both;
+  }
+  @keyframes drain { from { width:85%; } to { width:0%; } }
+
+  /* o clarão que corre com o dreno: um "respiro" do trilho.
+     não é enfeite — é o que faz o esvaziar ser SENTIDO e não só visto. */
+  .wash { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .wash::before {
+    content:""; position:absolute; top:0; bottom:0; width:120px;
+    background:linear-gradient(90deg, transparent,
+      var(--ember-glow), transparent);
+    transform:translateX(85%);
+    animation: wash 900ms var(--ease-drain) 120ms both;
+  }
+  @keyframes wash {
+    from { left:85%; opacity:.9; }
+    to   { left:-14%; opacity:0; }
+  }
+
+  /* o número desce junto com a tinta. mesmo tempo, mesma curva:
+     se o número e a barra não andarem juntos, o olho não acredita. */
+  .pct.resetting { animation: countdown var(--dur-reset) var(--ease-drain) 120ms both; }
+  @keyframes countdown {
+    from { color:var(--ink-0); font-weight:700; }
+    to   { color:var(--ink-3); font-weight:400; }
+  }
+  /* rolo de dígitos: 18 quadros, steps(18). line-height:1 é OBRIGATÓRIO —
+     sem ele cada quadro tem altura ≠ 1em e o rolo desalinha na 3ª volta. */
+  .digits { position:relative; display:inline-block; width:2ch; height:1em;
+            overflow:hidden; vertical-align:bottom; line-height:1; }
+  .digits em { position:absolute; left:0; top:0; font-style:normal;
+    line-height:1; display:block;
+    animation: rollNums var(--dur-reset) steps(18) 120ms both; }
+  @keyframes rollNums { from { transform:translateY(0); }
+                        to   { transform:translateY(-17em); } }
+
+  /* a agulha do agora salta de 100% pra 0%: a janela virou. */
+  .now.jumped { animation: jump 520ms var(--ease-out) 900ms both; }
+  @keyframes jump { from { left:100%; opacity:.3; } to { left:0%; opacity:1; } }
+
+  .prov { border-top:1px solid var(--line); background:var(--surface);
+          padding:var(--s-3) var(--s-6); display:flex; gap:var(--s-5); align-items:center; }
+  .prov .item { display:flex; align-items:center; gap:7px; font-size:var(--t-micro);
+    color:var(--ink-3); letter-spacing:.06em; text-transform:uppercase; }
+  .sw { width:26px; height:9px; border-radius:1px; }
+  .sw.m { background:var(--ink-1); }
+  .sw.d { background:repeating-linear-gradient(90deg,var(--ink-1) 0 1px,transparent 1px 3px); }
+  .sw.a { border:1px dashed var(--line); }
+  .prov .src { margin-left:auto; font-size:var(--t-micro); color:var(--ink-4);
+               font-family:var(--font-num); }
+
+  .replay { display:flex; align-items:center; gap:14px; }
+  .replay button { background:var(--surface); color:var(--ink-1);
+    border:1px solid var(--line); border-radius:var(--r-1);
+    padding:8px 16px; font-family:var(--font-ui); font-size:var(--t-sm);
+    cursor:pointer; }
+  .replay button:hover { background:var(--surface-hi); color:var(--ink-0); }
+  .replay span { font-size:var(--t-xs); color:var(--ink-3); }
+</style>
+</head>
+<body>
+
+<div class="win" id="win">
+
+  <div class="titlebar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="name">MyTokens</span>
+    <span class="chip">16:12</span>
+  </div>
+
+  <div class="verdict">
+    <div class="stack">
+      <div class="old">
+        <h1>Aperta o passo.</h1>
+        <p>O Codex encosta no teto antes da janela virar.</p>
+      </div>
+      <div class="new">
+        <h1>Janela nova.</h1>
+        <p>
+          O <b>Codex</b> zerou às <b>16:12</b>. Cinco horas inteiras pela frente.
+        </p>
+        <div class="clockline">
+          <span class="label">Folga</span>
+          <span class="big num">5 h 00</span>
+          <span class="label" style="margin-left:var(--s-4)">Próximo reset</span>
+          <span class="big num">21:12</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bench">
+    <div class="axis">
+      <span class="label">Janela de 5 h</span>
+      <div class="scale">
+        <span style="left:0%">0h</span><span style="left:20%">1h</span>
+        <span style="left:40%">2h</span><span style="left:60%">3h</span>
+        <span style="left:80%">4h</span><span style="left:100%">5h</span>
+      </div>
+      <span class="label" style="text-align:right">Consumo</span>
+    </div>
+
+    <!-- ===== CODEX: 85% → 0%. A tinta é DRENADA, não apagada. ===== -->
+    <div class="row">
+      <div class="who"><span class="n">Codex</span><span class="m">gpt-5.4 · plus</span></div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="ink live draining" style="width:85%"></div>
+          <div class="wash"></div>
+          <div class="now jumped"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct resetting" data-heat="3">
+          <span class="digits"><em>85<br>78<br>71<br>64<br>58<br>51<br>45<br>39<br>33<br>28<br>23<br>18<br>14<br>10<br>7<br>4<br>2<br>0</em></span><span class="unit">%</span>
+        </span>
+        <span class="sub">zera <b>21:12</b></span>
+      </div>
+    </div>
+
+    <!-- as outras pistas NÃO se mexem. As janelas são independentes.
+         Se tudo animasse junto, o app estaria mentindo sobre a mecânica
+         dos limites — e o usuário aprenderia errado. -->
+    <div class="row">
+      <div class="who"><span class="n">Claude Code</span><span class="m">opus-4-8 · 3 sessões</span></div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="band" style="left:38%; width:20%"></div>
+          <div class="ink derived" style="width:47%"></div>
+          <div class="now" style="left:64%"></div>
+        </div>
+      </div>
+      <div class="read">
+        <span class="pct" data-heat="1"><span class="approx">~</span>47<span class="unit">%</span></span>
+        <span class="sub">38–58 · zera <b>17:40</b></span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="who"><span class="n">Cursor</span><span class="m">sem dado local</span></div>
+      <div class="lane"><div class="track empty"><div class="now" style="left:64%"></div></div></div>
+      <div class="read"><span class="dash">—</span></div>
+    </div>
+  </div>
+
+  <div class="prov">
+    <span class="item"><i class="sw m"></i>Medido</span>
+    <span class="item"><i class="sw d"></i>Derivado</span>
+    <span class="item"><i class="sw a"></i>Sem dado</span>
+    <span class="src">janela do Codex virou · 16:12:00</span>
+  </div>
+</div>
+
+<div class="replay">
+  <button onclick="const w=document.getElementById('win');const c=w.cloneNode(true);w.replaceWith(c);c.id='win';">
+    ↻ Rever o reset
+  </button>
+  <span>900 ms de dreno. Encher leva 420 ms — esvaziar tem que levar mais.</span>
+</div>
+
+</body>
+</html>

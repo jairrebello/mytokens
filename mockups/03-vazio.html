@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MyTokens · primeiro boot (estado vazio)</title>
+<link rel="stylesheet" href="bancada.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center;
+         min-height:100vh; padding:40px; background:oklch(0.10 0.004 60); }
+  @media (prefers-color-scheme: light){ body{ background:oklch(0.90 0.004 80);} }
+
+  .win { width:940px; background:var(--canvas); border:1px solid var(--line);
+         border-radius:12px; overflow:hidden;
+         box-shadow:0 40px 90px -20px oklch(0 0 0 / .6); }
+
+  .titlebar { height:38px; display:flex; align-items:center; gap:var(--s-2);
+    padding:0 var(--s-4); border-bottom:1px solid var(--line-soft);
+    background:var(--surface); }
+  .dot { width:11px; height:11px; border-radius:50%; background:var(--track); }
+  .titlebar .name { margin-left:auto; margin-right:auto; font-size:var(--t-xs);
+    color:var(--ink-3); letter-spacing:.14em; text-transform:uppercase;
+    font-weight:600; }
+
+  /* O vazio NÃO é um vazio. É o instrumento ligado, com as pistas
+     abertas e o relógio andando. Falta a tinta — e a tinta chega
+     sozinha, assim que você trabalhar. Nada pra configurar. */
+  .verdict { padding: var(--s-7) var(--s-6) var(--s-5); }
+  .verdict h1 { font-size:var(--t-2xl); font-weight:600; letter-spacing:-.03em;
+                color:var(--ink-0); line-height:1.05; }
+  .verdict p { margin-top:var(--s-3); font-size:var(--t-md); color:var(--ink-2);
+               max-width:56ch; line-height:1.5; }
+  .verdict p b { color:var(--ink-1); font-weight:500; }
+
+  /* Pulso: o instrumento está VIVO, só não tem o que medir ainda.
+     É a única animação decorativa que me permito — e ela é funcional:
+     prova que o app está lendo o disco agora. */
+  .pulse { display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--ember); margin-right:8px; vertical-align:middle;
+    animation: breathe 2.4s var(--ease-out) infinite; }
+  @keyframes breathe {
+    0%,100% { opacity:.25; transform:scale(.8); }
+    50%     { opacity:1;   transform:scale(1); }
+  }
+
+  .bench { padding: var(--s-3) var(--s-6) var(--s-5); }
+  .axis, .row { display:grid; grid-template-columns:148px 1fr 176px;
+                align-items:center; gap:var(--s-4); }
+  .axis { padding-bottom:var(--s-2); }
+  .axis .scale { position:relative; height:12px; }
+  .axis .scale span { position:absolute; top:0; transform:translateX(-50%);
+    font-size:var(--t-micro); color:var(--ink-4); font-family:var(--font-num); }
+  .row { padding:var(--s-4) 0; border-top:1px solid var(--line-soft); }
+
+  .who { display:flex; flex-direction:column; gap:5px; }
+  .who .n { font-size:var(--t-md); color:var(--ink-0); font-weight:500; }
+  .who .m { font-size:var(--t-micro); color:var(--ink-3);
+            font-family:var(--font-num); }
+  .lane { position:relative; padding:10px 0; }
+
+  /* A DESCOBERTA é a primeira impressão. O app não pede nada:
+     ele mostra que JÁ SABE onde procurar. Isso é o que compra
+     confiança no segundo 1. */
+  .found { text-align:right; font-family:var(--font-num);
+           font-size:var(--t-micro); line-height:1.6; }
+  .found .ok  { color:var(--ink-2); }
+  .found .no  { color:var(--ink-4); }
+  .found .path { color:var(--ink-4); display:block; }
+  .found .connect { color:var(--ember); text-decoration:none; font-size:var(--t-xs);
+    font-family:var(--font-ui); border-bottom:1px solid oklch(.76 .13 48 / .35); }
+
+  .prov { border-top:1px solid var(--line); background:var(--surface);
+          padding:var(--s-3) var(--s-6); display:flex; gap:var(--s-5);
+          align-items:center; }
+  .prov .item { display:flex; align-items:center; gap:7px; font-size:var(--t-micro);
+    color:var(--ink-3); letter-spacing:.06em; text-transform:uppercase; }
+  .sw { width:26px; height:9px; border-radius:1px; }
+  .sw.m { background:var(--ink-1); }
+  .sw.d { background:repeating-linear-gradient(90deg,var(--ink-1) 0 1px,transparent 1px 3px); }
+  .sw.a { border:1px dashed var(--line); }
+  .prov .src { margin-left:auto; font-size:var(--t-micro); color:var(--ink-4);
+               font-family:var(--font-num); }
+</style>
+</head>
+<body>
+<div class="win">
+
+  <div class="titlebar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="name">MyTokens</span>
+    <span class="chip">09:02</span>
+  </div>
+
+  <div class="verdict">
+    <h1><span class="pulse"></span>Nada queimado ainda.</h1>
+    <p>
+      Achei o <b>Codex</b> e o <b>Claude Code</b> no disco. Nenhuma sessão nas
+      últimas 5 h, então as pistas estão limpas. Assim que você mandar o
+      primeiro prompt, a tinta aparece aqui — <b>sem configurar nada</b>.
+    </p>
+  </div>
+
+  <div class="bench">
+    <div class="axis">
+      <span class="label">Janela de 5 h</span>
+      <div class="scale">
+        <span style="left:0%">0h</span><span style="left:20%">1h</span>
+        <span style="left:40%">2h</span><span style="left:60%">3h</span>
+        <span style="left:80%">4h</span><span style="left:100%">5h</span>
+      </div>
+      <span class="label" style="text-align:right">Fonte</span>
+    </div>
+
+    <!-- vazio ≠ zero. A pista está aberta e o relógio no zero: a janela
+         nem começou. Isso é DIFERENTE de "não sei", lá embaixo. -->
+    <div class="row">
+      <div class="who"><span class="n">Codex</span><span class="m">gpt-5.4 · plus</span></div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="now" style="left:0%"></div>
+        </div>
+      </div>
+      <div class="found">
+        <span class="ok">pronto</span>
+        <span class="path">~/.codex/sessions</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="who"><span class="n">Claude Code</span><span class="m">opus-4-8</span></div>
+      <div class="lane">
+        <div class="track">
+          <div class="ticks"><i style="left:20%"></i><i style="left:40%"></i>
+            <i style="left:60%"></i><i style="left:80%"></i></div>
+          <div class="now" style="left:0%"></div>
+        </div>
+      </div>
+      <div class="found">
+        <span class="ok">pronto · 6.111 arquivos</span>
+        <span class="path">~/.claude/projects</span>
+      </div>
+    </div>
+
+    <!-- e o Cursor continua sendo o Cursor: sem dado. Já no primeiro boot
+         o app diz a verdade em vez de fingir um zero bonitinho. -->
+    <div class="row">
+      <div class="who"><span class="n">Cursor</span><span class="m">sem dado local</span></div>
+      <div class="lane">
+        <div class="track empty"><div class="now" style="left:0%"></div></div>
+      </div>
+      <div class="found">
+        <span class="no">nada no disco</span>
+        <a class="connect" href="#">conectar conta</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="prov">
+    <span class="item"><i class="sw m"></i>Medido</span>
+    <span class="item"><i class="sw d"></i>Derivado</span>
+    <span class="item"><i class="sw a"></i>Sem dado</span>
+    <span class="src">varrendo ~/.codex · ~/.claude</span>
+  </div>
+
+</div>
+</body>
+</html>
