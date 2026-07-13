@@ -30,6 +30,10 @@ final class AppModel {
     private(set) var theme: Theme = ThemeStore.current
     /// O que a barra mostra ao lado da proveta. Persistido.
     private(set) var menuBarStyle: MenuBarStyle = MenuBarStyleStore.current
+    /// Avisar quando uma janela cruza 85%. Persistido; nasce LIGADO.
+    private(set) var notifyAt85: Bool = NotifyStore.current
+    /// O macOS barrou os avisos. O menu precisa saber pra não mostrar um ✓ que não avisa nada.
+    private(set) var notificationsBlocked = false
     /// Quantas vezes o DISCO nos acordou. É a prova, em QA, de que isto é evento e não polling.
     private(set) var wakeCount = 0
     /// Se o motor nem subiu (ex.: pricing.json corrompido), a tela DIZ isso.
@@ -37,6 +41,9 @@ final class AppModel {
     private(set) var engineError: String?
 
     @ObservationIgnored private let engine: MyTokensEngine?
+    /// Os dois avisos do UI-SPEC §7. Ele instala o delegate no init (barato, e sem diálogo
+    /// nenhum) — a permissão só é pedida quando houver algo de verdade a dizer.
+    @ObservationIgnored private let notifier = Notifier()
     @ObservationIgnored private var watcher: FSEventsWatcher?
     @ObservationIgnored private var pumpTask: Task<Void, Never>?
     @ObservationIgnored private var debounceTask: Task<Void, Never>?
@@ -127,10 +134,20 @@ final class AppModel {
         // `engine` é um actor: o parsing acontece fora da MainActor, sozinho.
         let snapshot = await engine.refresh()
 
+        // O ANTERIOR, guardado antes de ser sobrescrito. É a única memória que o app tem do
+        // que já era verdade — e é comparando as duas que se descobre uma TRAVESSIA (cruzar
+        // 85%) em vez de um mero estado. Sem isso, "está em 90%" e "acabou de passar de 85%"
+        // viram a mesma coisa, e o app avisaria a cada refresh.
+        let anterior = dashboard
+
         statuses = snapshot.statuses
         dashboard = Dashboard(snapshot)
         lastRefresh = snapshot.generatedAt
         lastDuration = snapshot.duration
+
+        // Nenhum timer entra aqui: o disco acorda o app, o app compara, e só então fala.
+        await notifier.evaluate(previous: anterior, current: dashboard, enabled: notifyAt85)
+        notificationsBlocked = notifier.isBlocked
     }
 
     // MARK: - "conectar"
@@ -226,12 +243,32 @@ final class AppModel {
             launchesAtLogin: launchesAtLogin,
             theme: theme,
             menuBarStyle: menuBarStyle,
+            notifyAt85: notifyAt85,
+            notificationsBlocked: notificationsBlocked,
             togglePause: { [weak self] in self?.togglePause() },
             toggleLaunchAtLogin: { [weak self] in self?.toggleLaunchAtLogin() },
             setTheme: { [weak self] in self?.setTheme($0) },
             setMenuBarStyle: { [weak self] in self?.setMenuBarStyle($0) },
+            toggleNotifyAt85: { [weak self] in self?.toggleNotifyAt85() },
+            openNotificationSettings: { [weak self] in self?.notifier.openSystemSettings() },
             quit: { NSApplication.shared.terminate(nil) }
         )
+    }
+
+    /// Ligar NÃO abre o diálogo de permissão — o app não cobra autorização por um aviso que
+    /// talvez nunca aconteça. Só relê o status (isso não abre diálogo nenhum), pra que o
+    /// menu já diga a verdade se o macOS estiver barrando desde antes.
+    func toggleNotifyAt85() {
+        notifyAt85.toggle()
+        NotifyStore.current = notifyAt85   // sobrevive ao relaunch
+        guard notifyAt85 else {
+            notificationsBlocked = false   // desligado por ESCOLHA não é "bloqueado"
+            return
+        }
+        Task { [notifier] in
+            await notifier.refreshBlocked()
+            notificationsBlocked = notifier.isBlocked
+        }
     }
 
     func setTheme(_ t: Theme) {
