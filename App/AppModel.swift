@@ -55,6 +55,11 @@ final class AppModel {
         return [
             "\(home)/.claude/projects",
             "\(home)/.codex/sessions",
+            // O despejo do hook statusLine. É a ÚNICA fonte do "quanto resta" do Claude,
+            // e ela chega por EVENTO — o hook dispara a cada redesenho da statusline.
+            // Sem vigiar esta pasta, o número novo só apareceria na próxima vez que um
+            // JSONL mexesse, e a tela mostraria um "medido" velho sem motivo.
+            "\(home)/Library/Application Support/MyTokens",
         ]
     }
 
@@ -83,7 +88,9 @@ final class AppModel {
     /// filtramos aqui. ~/.claude ferve de ruído (statsig, todos, shell-snapshots): acordar
     /// o motor por causa de um arquivo de telemetria seria queimar CPU do usuário à toa.
     private static func isInteresting(_ path: String) -> Bool {
-        path.contains("/.claude/projects/") || path.contains("/.codex/sessions/")
+        path.contains("/.claude/projects/")
+            || path.contains("/.codex/sessions/")
+            || path.hasSuffix("/MyTokens/statusline.json")
     }
 
     /// Debounce: uma rajada de writes vira UMA coleta.
@@ -139,18 +146,23 @@ final class AppModel {
         switch provider {
         case .claudeCode:
             (
-                "O Claude não publica quanto sobra.",
+                "O hook do statusLine não está instalado.",
                 """
-                O quanto você JÁ GASTOU eu leio do disco, e está aqui na tela. \
-                O quanto RESTA não está em arquivo nenhum: o Claude Code recebe esse número \
-                nos headers HTTP e guarda só em memória.
+                O quanto você JÁ GASTOU eu leio do disco. O quanto RESTA não está em arquivo \
+                nenhum: o Claude Code recebe esse número nos headers HTTP e guarda só em \
+                memória. Ele passa por UM lugar — o stdin do hook `statusLine` — e some.
 
-                O único caminho até ele é o hook `statusLine`, que exige escrever em \
-                ~/.claude/settings.json — onde você já tem um hook do GSD que eu não vou \
-                sobrescrever sem você mandar.
+                Para capturá-lo, rode:
 
-                Enquanto isso não for decidido, o app prefere dizer "não sei" a inventar \
-                uma porcentagem.
+                    ./scripts/statusline-install.sh
+
+                Ele instala um wrapper de 5 linhas que guarda o número e chama o SEU \
+                statusLine atual, intacto. Não é um binário nosso no caminho: se você \
+                desinstalar o MyTokens, sua statusline continua funcionando igual.
+                Desfaz com ./scripts/statusline-uninstall.sh — e o settings.json volta byte \
+                a byte.
+
+                Até lá, o app prefere dizer "não sei" a inventar uma porcentagem.
                 """
             )
         case .codex:

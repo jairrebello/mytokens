@@ -1,7 +1,50 @@
-# STATUSLINE HOOK — o que exige, e o que eu NÃO fiz
+# STATUSLINE HOOK — o que exige, e o que foi feito
 
-**Status: INVESTIGADO. NADA INSTALADO. NADA ESCRITO.**
-O app, hoje, não escreveu um byte fora do repo. Este doc existe pro Jair decidir se autoriza — e o quê.
+> ## ⚠️ STATUS: **INSTALADO** em 2026-07-13, autorizado pelo Jair ("faz o que tem que fazer
+> para que a gente tenha as métricas completas"). Escolha: **opção A, variante shell**.
+>
+> **O que mudou na casa dele:**
+>
+> | arquivo | mudança |
+> |---|---|
+> | `~/.claude/settings.json` | **UMA linha**: `statusLine.command` → `~/.mytokens/statusline.sh`. As outras 180 linhas ficaram byte a byte iguais (troca cirúrgica no texto cru, sem reserializar o JSON). |
+> | `~/.mytokens/statusline.sh` | **NOVO.** O wrapper. |
+> | `~/.mytokens/backups/settings-*.json` | backup automático de antes de cada mudança. |
+> | `~/.claude/hooks/gsd-statusline.js` | **NÃO TOCADO.** |
+>
+> **Instalar:** `./scripts/statusline-install.sh` · **Desfazer:** `./scripts/statusline-uninstall.sh`
+>
+> **O round-trip foi TESTADO**, não prometido: desinstalar devolve o `settings.json`
+> **byte a byte** ao original. Isso foi verificado com `diff` antes de o hook ficar de pé.
+>
+> **Funcionou:** no primeiro redesenho da statusline o payload real caiu no despejo —
+> `five_hour: 12%` (zera 17:50), `seven_day: 9%` (zera seg. 06:00) — e o Claude saiu de
+> "não sei quanto sobra" para tinta SÓLIDA na tela. Sem til. Medido.
+>
+> ### Por que a opção A deixou de ser a arriscada
+>
+> A objeção original contra ela (§5) era real: *"viramos ponto único de falha da statusline
+> dele — se nosso binário travar ou demorar, a statusline some"*. A resposta não foi aceitar
+> o risco. Foi **tirar o binário do caminho**.
+>
+> O wrapper é um **shell script de 5 linhas** que despeja o stdin num arquivo e executa o
+> comando original, repassando stdout e código de saída. **Ele não depende do MyTokens.app
+> existir.** Apague o app: a statusline do Jair continua idêntica. Se o despejo falhar
+> (disco cheio, permissão), ele falha em silêncio com `|| true` e o comando original roda
+> mesmo assim — o app degrada para "não sei", que é um estado que ele já sabe mostrar com
+> honestidade. Nunca para tela em branco.
+>
+> ### E a opção C (`/api/oauth/usage`), que parecia mais limpa?
+>
+> **Morreu na pesquisa** (`docs/PESQUISA-FONTES.md`): o endpoint só responde a quem forja
+> `User-Agent: claude-code/x`, e o ToS da Anthropic de fev/2026 **veta terceiros usarem
+> credencial OAuth de assinatura**. Um app que precisa mentir sobre quem é para ler um
+> número não é caminho.
+
+---
+
+O texto abaixo é o levantamento ORIGINAL, de antes da decisão. Fica como está — é o
+raciocínio que levou até ela, e apagá-lo esconderia o preço que foi pago.
 
 Levantado pelo Chassi em 2026-07-13, por leitura read-only do disco.
 

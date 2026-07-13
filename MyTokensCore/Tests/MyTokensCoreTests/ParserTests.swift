@@ -482,10 +482,12 @@ struct IncrementalAggregationTests {
         let dir = try TempDir()
         let pricing = try PricingTable.bundled()
 
-        // 800 arquivos × 20 linhas = 16 mil linhas. Não é o disco do Jair (93 mil), mas é
-        // grande o bastante pra diferença entre "refazer tudo" e "refazer um" aparecer.
-        for i in 0..<800 {
-            let linhas = (0..<20).map {
+        // 300 arquivos × 150 linhas = 45 mil linhas — a mesma ORDEM de grandeza do disco
+        // real (93 mil linhas, 45 mil eventos). A proporção importa: com muitos arquivos
+        // pequenos, o custo de VARRER o diretório domina e esconde justamente o custo que
+        // este teste existe pra medir, que é o de AGREGAR.
+        for i in 0..<300 {
+            let linhas = (0..<150).map {
                 claudeAssistant(req: "r\(i)-\($0)", msg: "m\(i)-\($0)", output: 50)
             }
             try (linhas.joined(separator: "\n") + "\n").write(
@@ -509,7 +511,7 @@ struct IncrementalAggregationTests {
         let incremental = Double(DispatchTime.now().uptimeNanoseconds - t1.uptimeNanoseconds) / 1e9
 
         #expect(r.diagnostics.scan.filesAppended == 1)
-        #expect(r.events.count == 800 * 20 + 1)   // e o evento novo entrou
+        #expect(r.events.count == 300 * 150 + 1)   // e o evento novo entrou
         #expect(
             incremental < completo / 3,
             Comment(rawValue: "completo=\(Int(completo * 1000))ms "

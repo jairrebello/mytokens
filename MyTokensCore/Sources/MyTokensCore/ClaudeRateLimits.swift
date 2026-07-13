@@ -28,9 +28,15 @@ public struct ClaudeRateLimitSnapshot: Codable, Sendable {
 }
 
 public struct ClaudeRateLimitReader: Sendable {
+    /// O despejo CRU do stdin do statusLine, escrito pelo wrapper
+    /// (`scripts/statusline-install.sh`). É o payload do Claude Code, sem tradução —
+    /// o wrapper é um shell script de 5 linhas e não tem opinião sobre o conteúdo.
+    ///
+    /// Território do MyTokens, e só. O Core NUNCA escreve aqui e NUNCA lê de ~/.claude
+    /// (regra 3): quem escreve é o wrapper, que é do usuário e vive na casa dele.
     public static var defaultURL: URL {
         URL(fileURLWithPath: NSHomeDirectory())
-            .appending(path: "Library/Application Support/MyTokens/claude-rate-limits.json")
+            .appending(path: "Library/Application Support/MyTokens/statusline.json")
     }
 
     private let url: URL
@@ -40,9 +46,16 @@ public struct ClaudeRateLimitReader: Sendable {
     }
 
     public func read(now: Date = Date()) -> [LimitWindow] {
-        guard let data = try? Data(contentsOf: url),
-              let snap = try? JSONDecoder.mytokens.decode(ClaudeRateLimitSnapshot.self, from: data)
-        else { return [] }
+        guard let data = try? Data(contentsOf: url) else { return [] }
+
+        // A IDADE do número é o mtime do arquivo. Não existe carimbo de hora DENTRO do
+        // payload do statusLine — e a idade não é detalhe: o hook só dispara enquanto o
+        // Claude Code roda. Fechou o Claude, o número CONGELA. Sem `capturedAt`, a tela
+        // venderia um valor de ontem como se fosse de agora.
+        let capturado = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate ?? now
+
+        guard let snap = Self.ingest(statusLineStdin: data, now: capturado) else { return [] }
         return Self.windows(from: snap, now: now)
     }
 
@@ -100,28 +113,22 @@ public struct ClaudeRateLimitReader: Sendable {
         return ClaudeRateLimitSnapshot(capturedAt: now, fiveHour: five, sevenDay: seven)
     }
 
-    /// Grava o snapshot. Só escreve DENTRO do território do MyTokens — nunca em ~/.claude.
-    public func write(_ snapshot: ClaudeRateLimitSnapshot) throws {
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        let data = try JSONEncoder.mytokens.encode(snapshot)
-        try data.write(to: url, options: .atomic)
+    /// O hook está instalado? É o que o app pergunta pra decidir entre oferecer o
+    /// "conectar" e mostrar o número. Existir o arquivo já é a resposta: quem o cria é o
+    /// wrapper, e o wrapper só existe se o usuário mandou instalar.
+    public var isConnected: Bool {
+        FileManager.default.fileExists(atPath: url.path)
     }
 }
+
+// O Core NÃO ESCREVE o despejo — quem escreve é o wrapper (um shell script, na casa do
+// usuário, que ele instalou por vontade própria e desinstala com um comando). Aqui só se
+// LÊ. Foi de propósito: manter o app fora do caminho crítico da statusline dele.
 
 extension JSONDecoder {
     static let mytokens: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
         return d
-    }()
-}
-
-extension JSONEncoder {
-    static let mytokens: JSONEncoder = {
-        let e = JSONEncoder()
-        e.dateEncodingStrategy = .iso8601
-        return e
     }()
 }
