@@ -200,10 +200,14 @@ if [ "$MODE" = "release" ]; then
   # pbxproj. O build ad-hoc de todo dia continua byte a byte o que era.
   # --timestamp: sem timestamp seguro a notarização é RECUSADA.
   # ENABLE_HARDENED_RUNTIME já é YES no projeto; fica explícito porque é requisito.
+  # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO: xcodebuild sem archive injeta get-task-allow
+  # (entitlement de debug) nos base entitlements. A Apple recusa notarização com ele
+  # presente — "The executable requests the com.apple.security.get-task-allow entitlement".
   XCARGS+=(CODE_SIGN_IDENTITY="$SIGN_IDENTITY"
            DEVELOPMENT_TEAM="$TEAM_ID"
            CODE_SIGN_STYLE=Manual
            ENABLE_HARDENED_RUNTIME=YES
+           CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
            OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime")
 else
   echo "==> compilando (Release) SEM assinatura de distribuição — modo --local"
