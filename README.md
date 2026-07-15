@@ -5,6 +5,7 @@
 [![Downloads](https://img.shields.io/github/downloads/jairrebello/mytokens/total?label=downloads)](https://github.com/jairrebello/mytokens/releases)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138)
+[![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 App de barra de menu pra macOS que responde uma pergunta só, numa olhada: **posso continuar trabalhando ou vou bater no limite?**
 
