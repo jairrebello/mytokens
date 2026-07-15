@@ -162,8 +162,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
 
         // `trigger: nil` = agora. Agendar seria inventar um relógio, e o app não tem um.
+        //
+        // `.current()` de novo, não `center`: a property é MainActor-isolada, e enviá-la
+        // através do `await` é exatamente o "sending self.center risks causing data races"
+        // que o SDK mais estrito recusa. `.current()` pega a mesma instância sem atravessar
+        // fronteira nenhuma — é chamada de dentro do contexto onde o `await` acontece.
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
-        try? await center.add(request)
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     /// O CONSELHO MUDA COM A NATUREZA DO TETO — e é a única coisa que o orçamento não herdou
@@ -227,7 +232,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private func ensureAuthorized() async -> Bool {
         switch await currentAuthorizationStatus() {
         case .notDetermined:
-            let ok = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+            // Mesma razão do `.add()` acima: `.current()`, não `center`, pra não enviar a
+            // property MainActor-isolada através do `await`.
+            let ok = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false
             isBlocked = !ok
             return ok
         case .denied:
