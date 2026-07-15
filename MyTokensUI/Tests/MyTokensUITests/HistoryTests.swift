@@ -128,6 +128,79 @@ struct HistoryTests {
         #expect(History.top(Array(cuts.prefix(3)), 5).rest == nil)
     }
 
+    // MARK: - O corte por dia (a barra que vira seleção)
+
+    @Test("cada dia carrega o próprio corte — e a fatia é fração DO DIA, não do período")
+    func perDayBreakdownIsScopedToTheDay() {
+        let h = History(events: [
+            // Ontem: dois projetos, dois modelos.
+            Self.ev(daysAgo: 1, usd: 6, project: "mytokens", model: "claude-opus-4-8"),
+            Self.ev(daysAgo: 1, usd: 4, project: "funnel", model: "claude-sonnet-4-6"),
+            // Hoje: só um projeto, pra provar que o corte NÃO vaza de um dia pro outro.
+            Self.ev(daysAgo: 0, usd: 100, project: "mytokens", model: "claude-opus-4-8"),
+        ])
+
+        let ontem = h.days[28]
+        let bd = try! #require(ontem.breakdown)
+        #expect(bd.projects.map(\.key) == ["mytokens", "funnel"])
+        #expect(bd.projects.first?.costUSD == 6)
+        // 60% do DIA (6 de 10) — não 6% do período (6 de ~110), que seria o número
+        // do corte do mês vazando pra dentro do corte do dia.
+        #expect(abs((bd.projects.first?.share ?? 0) - 0.6) < 0.0001)
+        #expect(bd.models.map(\.key) == ["claude-opus-4-8", "claude-sonnet-4-6"])
+        #expect(bd.unattributedUSD == 0)
+
+        let hoje = h.days[29]
+        let bdHoje = try! #require(hoje.breakdown)
+        #expect(bdHoje.projects.map(\.costUSD) == [100])
+        #expect(ontem.isSelectable)
+        #expect(hoje.isSelectable)
+    }
+
+    @Test("dia sem registro é selecionável e honesto: corte vazio, não corte inventado")
+    func dayWithoutRecordHasEmptyBreakdown() {
+        let h = History(events: [Self.ev(daysAgo: 0, usd: 5)])
+        let semRegistro = h.days[0]   // 29 dias atrás — nenhum evento caiu aqui
+
+        #expect(semRegistro.hasRecord == false)
+        let bd = try! #require(semRegistro.breakdown)
+        #expect(bd.projects.isEmpty)
+        #expect(bd.models.isEmpty)
+        #expect(bd.unattributedUSD == 0)
+        // Selecionável mesmo sem registro: a lista vira "—", que é a resposta honesta,
+        // não uma seleção recusada.
+        #expect(semRegistro.isSelectable)
+    }
+
+    @Test("evento sem projeto no dia vira o não-atribuído DAQUELE dia, não do mês")
+    func perDayUnattributedClosesTheDaySum() {
+        let h = History(events: [
+            Self.ev(daysAgo: 1, usd: 8, project: "mytokens"),
+            Self.ev(daysAgo: 1, usd: 2, project: nil),
+            Self.ev(daysAgo: 0, usd: 50, project: nil),   // outro dia, não pode contaminar
+        ])
+
+        let ontem = try! #require(h.days[28].breakdown)
+        #expect(ontem.unattributedUSD == 2)
+        #expect(ontem.projects.reduce(Decimal(0)) { $0 + $1.costUSD } + ontem.unattributedUSD == 10)
+
+        let hoje = try! #require(h.days[29].breakdown)
+        #expect(hoje.unattributedUSD == 50)
+        #expect(hoje.projects.isEmpty)
+    }
+
+    @Test("History.assembled não sabe cortar por dia — e diz isso não fingindo seleção")
+    func assembledHistoryHasNoPerDayBreakdown() {
+        let h = History.assembled(
+            dailyUSD: [3, nil, 0],
+            projects: [("mytokens", 3)],
+            models: [("claude-opus-4-8", 3)]
+        )
+
+        #expect(h.days.allSatisfy { $0.breakdown == nil })
+        #expect(h.days.allSatisfy { $0.isSelectable == false })
+    }
+
     // MARK: - O nome do modelo
 
     @Test("id de modelo conhecido vira nome; o desconhecido fica CRU")

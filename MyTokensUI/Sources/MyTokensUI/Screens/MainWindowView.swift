@@ -55,6 +55,34 @@ public struct MainWindowView: View {
     private var history: History { snapshot.history }
     private var showsHistory: Bool { !history.days.isEmpty && history.hasAnyRecord }
 
+    /// O dia pinado no `DayRack`. Guardamos a DATA, não o `Day`: o `History` é
+    /// reconstruído a cada scan, e um `Day` de um snapshot antigo ficaria preso no
+    /// passado. A data é a única parte do dia que sobrevive ao refresh.
+    @State private var selectedDayDate: Date?
+
+    /// O dia selecionado, resolvido contra o trilho ATUAL. `nil` também quando a
+    /// data pinada saiu da janela de 30 dias (o trilho rolou) — a seleção então
+    /// simplesmente se desfaz sozinha, sem código extra pra "limpar".
+    private var selectedDay: History.Day? {
+        guard let selectedDayDate else { return nil }
+        return history.days.first { $0.start == selectedDayDate }
+    }
+
+    /// As duas listas ("ONDE FOI" · "EM QUE MODELO") cortam por dia quando há
+    /// seleção, e pelo período inteiro quando não há. As duas SEMPRE cortam pela
+    /// MESMA coisa — uma no dia e a outra no mês seria uma dupla mentirosa.
+    private var projectCuts: [History.Cut] { selectedDay?.breakdown?.projects ?? history.projects }
+    private var modelCuts: [History.Cut] { selectedDay?.breakdown?.models ?? history.models }
+    private var unattributedUSD: Decimal { selectedDay?.breakdown?.unattributedUSD ?? history.unattributedUSD }
+
+    /// O sub-rótulo que avisa: o denominador mudou. Sem ele, "87%" no corte de um
+    /// dia e "87%" no corte do mês são o mesmo número gritando coisas diferentes.
+    private var scopeSubtitle: String? {
+        guard let selectedDay else { return nil }
+        let isToday = selectedDay.start == history.days.last?.start
+        return DayRack.dayLabel(selectedDay.start, isToday: isToday)
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             verdictBlock
@@ -383,31 +411,37 @@ public struct MainWindowView: View {
 
     private var past: some View {
         VStack(alignment: .leading, spacing: S.s4) {
-            DayRack(history: history)
+            DayRack(history: history, selected: $selectedDayDate)
 
             provenance
 
             // Onde foi | em que modelo. Lado a lado porque são a MESMA pergunta cortada de
             // dois jeitos: uma diz o lugar, a outra diz o preço do lugar. Empilhadas,
             // pareceriam duas seções, e o olho leria uma e abandonaria a outra.
+            //
+            // Com um dia selecionado no trilho, as duas cortam pelo DIA — e o sub-rótulo
+            // diz isso, porque "87%" do dia e "87%" do mês são o mesmo número mentindo
+            // sobre denominadores diferentes se ninguém escrever qual é qual.
             HStack(alignment: .top, spacing: S.s7) {
                 SpendList(
                     title: "ONDE FOI",
-                    cuts: history.projects,
+                    subtitle: scopeSubtitle,
+                    cuts: projectCuts,
                     restNoun: "projetos",
                     // Evento sem `cwd` no disco existe (Codex antigo, sessão fora de repo).
                     // Ele não vira um projeto chamado "desconhecido" — vira uma linha que
                     // FECHA a conta. A alternativa era a coluna somar menos que o trilho e
                     // ninguém explicar por quê.
-                    tail: history.unattributedUSD > 0
-                        ? .init(label: "sem projeto no disco", costUSD: history.unattributedUSD)
+                    tail: unattributedUSD > 0
+                        ? .init(label: "sem projeto no disco", costUSD: unattributedUSD)
                         : nil
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 SpendList(
                     title: "EM QUE MODELO",
-                    cuts: history.models,
+                    subtitle: scopeSubtitle,
+                    cuts: modelCuts,
                     restNoun: "modelos"
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)

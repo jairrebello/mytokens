@@ -23,6 +23,11 @@ public struct SpendList: View {
 
     /// "ONDE FOI" · "EM QUE MODELO"
     public let title: String
+    /// O escopo, quando não é o período inteiro — ex. a data de um dia selecionado
+    /// no `DayRack`. `nil` é o padrão silencioso: "corto o período", que não precisa
+    /// de rótulo porque é o que a tela sempre disse. Existe SÓ pra avisar quando o
+    /// denominador da pista mudou — ver `norte-ux`, princípio 3.
+    public var subtitle: String?
     public let cuts: [History.Cut]
     /// Quantas linhas antes da cauda virar uma só.
     public var limit: Int = 5
@@ -44,12 +49,14 @@ public struct SpendList: View {
 
     public init(
         title: String,
+        subtitle: String? = nil,
         cuts: [History.Cut],
         limit: Int = 5,
         restNoun: String = "projetos",
         tail: Tail? = nil
     ) {
         self.title = title
+        self.subtitle = subtitle
         self.cuts = cuts
         self.limit = limit
         self.restNoun = restNoun
@@ -62,11 +69,21 @@ public struct SpendList: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: S.s3) {
-            Text(title)
-                .font(.ui(T.micro, .medium))
-                .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
-                .accessibilityHidden(true)   // já abre a fala de cada linha
+            HStack(alignment: .firstTextBaseline, spacing: S.s2) {
+                Text(title)
+                    .font(.ui(T.micro, .medium))
+                    .tracking(0.09 * T.micro)
+                    .foregroundStyle(p.ink3)
+
+                // O escopo muda, o rótulo não pode ficar calado sobre isso. Fonte
+                // solta (sem tracking de caixa-alta): é aviso, não título.
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.ui(T.xs))
+                        .foregroundStyle(p.ink4)
+                }
+            }
+            .accessibilityHidden(true)   // já abre a fala de cada linha
 
             if cuts.isEmpty {
                 // Nada custou nada. Travessão — nunca um zero.

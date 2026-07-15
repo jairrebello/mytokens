@@ -38,12 +38,19 @@ public struct DayRack: View {
     /// A altura útil da tinta. A régua vive dentro dela.
     public var height: CGFloat = 68
 
+    /// O dia PINADO por clique — ao contrário do hover, sobrevive ao mouse sair. É
+    /// o `start` do `History.Day`, não o `Day` inteiro: a seleção atravessa refresh
+    /// (o `History` é reconstruído a cada scan, e o `Day` de ontem é um struct novo
+    /// a cada vez — só a data é estável).
+    @Binding public var selected: Date?
+
     /// A coluna sob o cursor. Só isto — hover é chrome, não dado: some quando o
-    /// mouse sai, e a leitura volta a ser a do período inteiro.
+    /// mouse sai, e a leitura volta a ser a da seleção (ou do período, sem seleção).
     @State private var hovered: Int?
 
-    public init(history: History, height: CGFloat = 68) {
+    public init(history: History, selected: Binding<Date?>, height: CGFloat = 68) {
         self.history = history
+        self._selected = selected
         self.height = height
     }
 
@@ -57,6 +64,27 @@ public struct DayRack: View {
 
     private var peakValue: Double {
         (history.peak?.costUSD as NSDecimalNumber?)?.doubleValue ?? 0
+    }
+
+    /// O dia pinado, resolvido contra o trilho de AGORA — nunca contra um `Day`
+    /// guardado de um refresh antigo, que já não existe.
+    private var selectedDay: History.Day? {
+        guard let selected else { return nil }
+        return days.first { $0.start == selected }
+    }
+
+    private var selectedIndex: Int? {
+        guard let selected else { return nil }
+        return days.firstIndex { $0.start == selected }
+    }
+
+    /// Clique NA barra faz e desfaz a mesma seleção; clique fora de qualquer barra
+    /// (mas ainda dentro da fita) solta. Dia sem corte por dia (`History.assembled`,
+    /// ver `Day.isSelectable`) não vira seleção — clicar nele fingiria um corte que
+    /// ninguém calculou.
+    private func toggle(_ day: History.Day) {
+        guard day.isSelectable else { return }
+        selected = (selected == day.start) ? nil : day.start
     }
 
     public var body: some View {
@@ -95,7 +123,10 @@ public struct DayRack: View {
     @ViewBuilder
     private var readout: some View {
         HStack(alignment: .firstTextBaseline, spacing: S.s2) {
-            if let i = hovered, days.indices.contains(i) {
+            // O cursor manda quando está em cima do trilho — é a leitura mais recente
+            // que o usuário pediu. Sem cursor ali, a seleção pinada continua falando
+            // (é ESTADO, não chrome); só na ausência das duas o visor volta pro período.
+            if let i = hovered ?? selectedIndex, days.indices.contains(i) {
                 Text(Self.dayLabel(days[i].start, isToday: i == days.count - 1))
                     .font(.ui(T.xs))
                     .foregroundStyle(p.ink3)
@@ -125,6 +156,7 @@ public struct DayRack: View {
             }
         }
         .motion(.chrome, value: hovered)
+        .motion(.chrome, value: selectedIndex)
     }
 
     // MARK: - A fita
@@ -151,6 +183,12 @@ public struct DayRack: View {
                     .offset(x: Self.gutter, y: 1)
             }
             .contentShape(Rectangle())
+            .onTapGesture {
+                // Cada coluna tem seu próprio tap e o consome primeiro — este só dispara
+                // pro clique que sobra (a calha da régua, o vão entre colunas). É o
+                // "clique fora das barras" que solta a seleção.
+                selected = nil
+            }
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let pt):
@@ -168,9 +206,17 @@ public struct DayRack: View {
     @ViewBuilder
     private func column(_ day: History.Day, index: Int, w: CGFloat, h: CGFloat) -> some View {
         let isToday = index == days.count - 1
+        let isSelected = selectedIndex == index
 
         ZStack(alignment: .bottom) {
-            if hovered == index {
+            if isSelected {
+                // A marca de seleção. Mais firme que a lupa do hover E não some com o
+                // mouse: seleção é ESTADO (muda o que as duas listas mostram embaixo),
+                // não chrome — e estado precisa sobreviver ao cursor saindo da coluna.
+                Rectangle()
+                    .fill(p.ink4.opacity(0.22))
+                    .frame(width: w, height: h)
+            } else if hovered == index {
                 // A lupa. Puro chrome: marca onde o olho está, não muda o que o dado diz.
                 Rectangle()
                     .fill(p.ink4.opacity(0.14))
@@ -206,7 +252,10 @@ public struct DayRack: View {
             }
         }
         .frame(width: w, height: h, alignment: .bottom)
+        .contentShape(Rectangle())
+        .onTapGesture { toggle(day) }
         .motion(.data, value: day.costUSD)
+        .motion(.chrome, value: isSelected)
     }
 
     /// A GRADUAÇÃO. Em US$, porque é o que a coluna mede — e a régua diz a unidade sem
@@ -321,6 +370,12 @@ public struct DayRack: View {
     /// A leitura do trilho, em uma fala. Os mesmos três fatos que o olho tira dele:
     /// o total, o pior dia, e o tamanho do buraco no registro.
     private var spoken: String {
+        // A seleção muda o que as duas listas abaixo mostram — a fala do trilho
+        // precisa dizer isso, senão o VoiceOver descreve um período que não é mais
+        // o que está na tela.
+        if let day = selectedDay {
+            return spokenSelection(day)
+        }
         guard history.hasAnyRecord else {
             return "Últimos 30 dias: o disco não guarda registro nenhum deste período."
         }
@@ -346,5 +401,22 @@ public struct DayRack: View {
             )
         }
         return parts.joined(separator: " ")
+    }
+
+    private func spokenSelection(_ day: History.Day) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pt_BR")
+        f.dateFormat = "EEEE, d 'de' MMMM"
+        let label = day.start == days.last?.start ? "hoje" : f.string(from: day.start)
+        let reading: String = {
+            guard let c = day.costUSD else {
+                return "sem registro no disco para este dia"
+            }
+            return "custo estimado de "
+                + Verdict.usd(c).replacingOccurrences(of: "US$ ", with: "") + " dólares"
+        }()
+        return "Dia selecionado: \(label), \(reading). "
+            + "As listas de projeto e modelo abaixo agora mostram o corte deste dia, "
+            + "não o do período inteiro."
     }
 }

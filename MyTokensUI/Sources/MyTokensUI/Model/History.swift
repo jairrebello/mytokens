@@ -41,13 +41,35 @@ public struct History: Sendable, Equatable {
         public var id: Date { start }
         public let start: Date
         public let costUSD: Decimal?
+        /// O corte DESTE dia — por projeto e por modelo. `nil` quando a fonte não permite
+        /// derivar por dia (`History.assembled`, que só recebe agregados prontos do
+        /// período inteiro, sem os eventos crus). Nesse caso a coluna existe mas não é
+        /// selecionável: clicar nela não pode fingir um corte que ninguém calculou.
+        public let breakdown: Breakdown?
 
-        public init(start: Date, costUSD: Decimal?) {
+        public struct Breakdown: Sendable, Equatable {
+            public let projects: [Cut]
+            public let models: [Cut]
+            /// Gasto do dia que o disco não sabe atribuir a projeto nenhum. Mesma regra
+            /// do total do período: existe pra a coluna do dia FECHAR com o `costUSD` dele.
+            public let unattributedUSD: Decimal
+
+            public init(projects: [Cut], models: [Cut], unattributedUSD: Decimal) {
+                self.projects = projects
+                self.models = models
+                self.unattributedUSD = unattributedUSD
+            }
+        }
+
+        public init(start: Date, costUSD: Decimal?, breakdown: Breakdown? = nil) {
             self.start = start
             self.costUSD = costUSD
+            self.breakdown = breakdown
         }
 
         public var hasRecord: Bool { costUSD != nil }
+        /// Pode virar seleção fixa no trilho? Só quando o dia carrega seu próprio corte.
+        public var isSelectable: Bool { breakdown != nil }
     }
 
     /// Uma fatia do bolo: um projeto ou um modelo. Só entra quem CUSTOU.
@@ -197,6 +219,13 @@ extension History {
         byProject.reserveCapacity(128)
         byModel.reserveCapacity(16)
 
+        // O MESMO corte, por dia. Vive ao lado do agregado do período inteiro — a
+        // passada continua sendo UMA só, e é por isso que o corte por dia não custa
+        // uma segunda varredura do disco.
+        var byProjectPerDay = [[String: Decimal]](repeating: [:], count: span)
+        var byModelPerDay = [[String: Decimal]](repeating: [:], count: span)
+        var attributedPerDay = [Decimal](repeating: 0, count: span)
+
         var oldest: Date?
         var newest: Date?
         var total = Decimal(0)
@@ -221,16 +250,29 @@ extension History {
             cost[lo] += e.costUSD
             total += e.costUSD
             byModel[e.model, default: 0] += e.costUSD
+            byModelPerDay[lo][e.model, default: 0] += e.costUSD
             if let p = e.project {
                 byProject[p, default: 0] += e.costUSD
                 attributed += e.costUSD
+                byProjectPerDay[lo][p, default: 0] += e.costUSD
+                attributedPerDay[lo] += e.costUSD
             }
         }
 
         let live = newest.map { now.timeIntervalSince($0) < Dashboard.liveWindow } ?? false
 
         self.init(
-            days: (0..<span).map { Day(start: starts[$0], costUSD: seen[$0] ? cost[$0] : nil) },
+            days: (0..<span).map { i in
+                Day(
+                    start: starts[i],
+                    costUSD: seen[i] ? cost[i] : nil,
+                    breakdown: Day.Breakdown(
+                        projects: Self.cuts(byProjectPerDay[i], total: cost[i]) { $0 },
+                        models: Self.cuts(byModelPerDay[i], total: cost[i], label: Self.modelLabel),
+                        unattributedUSD: max(0, cost[i] - attributedPerDay[i])
+                    )
+                )
+            },
             projects: Self.cuts(byProject, total: total) { $0 },
             models: Self.cuts(byModel, total: total, label: Self.modelLabel),
             unattributedUSD: max(0, total - attributed),
