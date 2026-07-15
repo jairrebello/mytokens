@@ -470,16 +470,17 @@ struct IncrementalAggregationTests {
         // Este chega agora e vê o disco pronto. É a verdade contra a qual o outro é medido.
         let doZero = try await ClaudeCodeCollector(root: dir.url, pricing: pricing).collectDetailed()
 
+        let incrementalIds = incremental.events.map(\.id).sorted()
+        let doZeroIds = doZero.events.map(\.id).sorted()
+        let incrementalOutput = incremental.events.reduce(0) { $0 + $1.tokens.output }
+        let doZeroOutput = doZero.events.reduce(0) { $0 + $1.tokens.output }
+
         #expect(incremental.events.count == doZero.events.count)
-        #expect(
-            incremental.events.map(\.id).sorted() == doZero.events.map(\.id).sorted()
-        )
-        #expect(
-            incremental.events.reduce(0) { $0 + $1.tokens.output }
-                == doZero.events.reduce(0) { $0 + $1.tokens.output }
-        )
+        #expect(incrementalIds == doZeroIds)
+        #expect(incrementalOutput == doZeroOutput)
         // e o valor certo: r1 conta 555 (não 100, nem 100+555), r2 200, r3 300.
-        #expect(incremental.events.reduce(0) { $0 + $1.tokens.output } == 555 + 200 + 300)
+        let esperado = 555 + 200 + 300
+        #expect(incrementalOutput == esperado)
     }
 
     /// Arquivo REESCRITO encolhendo: o que sumiu tem que sumir da conta também.
@@ -502,8 +503,9 @@ struct IncrementalAggregationTests {
             .write(to: f, atomically: true, encoding: .utf8)
 
         let r = try await c.collectDetailed()
+        let rOutput = r.events.reduce(0) { $0 + $1.tokens.output }
         #expect(r.events.count == 1)
-        #expect(r.events.reduce(0) { $0 + $1.tokens.output } == 100)
+        #expect(rOutput == 100)
     }
 
     /// Arquivo APAGADO: idem.
