@@ -1,6 +1,10 @@
 # MyTokens
 
 [![CI](https://github.com/jairrebello/mytokens/actions/workflows/ci.yml/badge.svg)](https://github.com/jairrebello/mytokens/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jairrebello/mytokens?label=release)](https://github.com/jairrebello/mytokens/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/jairrebello/mytokens/total?label=downloads)](https://github.com/jairrebello/mytokens/releases)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138)
 
 App de barra de menu pra macOS que responde uma pergunta só, numa olhada: **posso continuar trabalhando ou vou bater no limite?**
 
