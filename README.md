@@ -63,13 +63,7 @@ cd mytokens
 
 Quem preferir não buildar: [github.com/jairrebello/mytokens/releases/latest](https://github.com/jairrebello/mytokens/releases/latest).
 
-O DMG da release **não é assinado por um Developer ID pago**. O Gatekeeper do macOS vai dizer que o app está danificado. Isso não é o app quebrado — é a assinatura ad-hoc esbarrando na quarentena do Gatekeeper. Pra liberar:
-
-```bash
-xattr -cr /Applications/MyTokens.app
-```
-
-Recomendação honesta: se der pra buildar da fonte (seção acima), prefira isso. Você compila o que está no repo, sem confiar em binário de terceiro nem remover proteção do sistema.
+O DMG é **assinado com Developer ID e notarizado pela Apple** — baixou, arrastou pra `/Applications`, abriu. O sha256 de cada artefato está nas notas da release, pra quem quiser conferir o que baixou.
 
 ## Requisitos
 
