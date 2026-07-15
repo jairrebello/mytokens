@@ -182,6 +182,11 @@ public struct DayRack: View {
                     .frame(width: w - Self.gutter, height: 1)
                     .offset(x: Self.gutter, y: 1)
             }
+            // O ZStack mede a largura pelos FILHOS, e `.offset` não entra na conta: o filho
+            // mais largo tem `w - gutter`, e as últimas colunas (hoje, ontem) desenham FORA
+            // dos bounds do pai — visíveis, mas mortas pro hit-test. Sem esta linha, clique
+            // e hover param de funcionar exatamente na largura da calha, contada da direita.
+            .frame(width: w, height: h, alignment: .bottomLeading)
             .contentShape(Rectangle())
             .onTapGesture {
                 // Cada coluna tem seu próprio tap e o consome primeiro — este só dispara
