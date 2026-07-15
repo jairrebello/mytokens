@@ -225,7 +225,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// por você. Este pede depois de já ter algo a dizer, e o que ele tem a dizer é a
     /// justificativa do pedido.
     private func ensureAuthorized() async -> Bool {
-        switch await center.notificationSettings().authorizationStatus {
+        switch await currentAuthorizationStatus() {
         case .notDetermined:
             let ok = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
             isBlocked = !ok
@@ -242,7 +242,17 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// Lê o status SEM pedir nada (`notificationSettings()` nunca abre diálogo). É o que
     /// mantém o menu honesto quando o usuário revoga a permissão em Ajustes depois de dar.
     func refreshBlocked() async {
-        isBlocked = await center.notificationSettings().authorizationStatus == .denied
+        isBlocked = await currentAuthorizationStatus() == .denied
+    }
+
+    /// `nonisolated` de propósito: é aqui, no mesmo contexto isolado da chamada, que
+    /// `UNNotificationSettings` (não-Sendable) é lido e reduzido ao `authorizationStatus`
+    /// (Sendable) — antes de atravessar de volta pro MainActor. Deixar o objeto inteiro
+    /// atravessar é o que o Swift 6 estrito recusa a compilar. `.current()` de novo, e não
+    /// `self.center`: a property é MainActor-isolada, e `UNUserNotificationCenter` também
+    /// não é Sendable — sair com ela de um contexto `nonisolated` falha do mesmo jeito.
+    private nonisolated func currentAuthorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 
     /// "diz o que quebrou e como consertar", inline — a mesma regra dos erros do UI-SPEC.
