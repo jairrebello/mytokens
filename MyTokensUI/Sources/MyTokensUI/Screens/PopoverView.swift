@@ -265,6 +265,24 @@ struct AppMenu: View {
                         Label(s.label, systemImage: s == controls.menuBarStyle ? "checkmark" : "")
                     }
                 }
+                // De QUAL janela o número fala (UI-SPEC §12). Só aparece quando o estilo
+                // ativo fala de uma janela — fixar janela no "custo de hoje" não é nada.
+                if controls.menuBarStyle.usesWindow {
+                    Divider()
+                    Button(action: { controls.setMenuBarPin(nil) }) {
+                        Label("Automática — a que aperta primeiro",
+                              systemImage: controls.menuBarPin == nil ? "checkmark" : "")
+                    }
+                    ForEach(controls.menuBarPinOptions) { o in
+                        // A fixada que sumiu continua NA LISTA, marcada e apagada: a barra
+                        // caiu pra Automática sozinha, mas a escolha não foi jogada fora.
+                        Button(action: { controls.setMenuBarPin(o.id) }) {
+                            Label(o.available ? o.label : "\(o.label) — indisponível",
+                                  systemImage: o.id == controls.menuBarPin?.id ? "checkmark" : "")
+                        }
+                        .disabled(!o.available)
+                    }
+                }
             }
             Menu("Tema") {
                 ForEach(Theme.allCases) { t in

@@ -30,6 +30,11 @@ final class AppModel {
     private(set) var theme: Theme = ThemeStore.current
     /// O que a barra mostra ao lado da proveta. Persistido.
     private(set) var menuBarStyle: MenuBarStyle = MenuBarStyleStore.current
+    /// De QUAL janela a barra fala (UI-SPEC §12). `nil` = Automática, a que aperta.
+    /// Persistido COM o rótulo — se a janela sumir do disco, a barra cai pra Automática
+    /// sozinha mas o picker segue mostrando a escolha, marcada indisponível. A preferência
+    /// só morre quando o usuário a troca.
+    private(set) var menuBarPin: MenuBarPin? = MenuBarPinStore.current
     /// Avisar quando uma janela cruza 85%. Persistido; nasce LIGADO.
     private(set) var notifyAt85: Bool = NotifyStore.current
     /// O teto de gasto mensal. Persistido, e nasce `nil`: NINGUÉM tem orçamento até dizer que
@@ -573,6 +578,8 @@ final class AppModel {
             launchesAtLogin: launchesAtLogin,
             theme: theme,
             menuBarStyle: menuBarStyle,
+            menuBarPin: menuBarPin,
+            menuBarPinOptions: menuBarPinOptions,
             hook: hookState,
             openHookPanel: { [weak self] in self?.connect(.claudeCode) },
             budgetUSD: budgetUSD,
@@ -583,6 +590,7 @@ final class AppModel {
             toggleLaunchAtLogin: { [weak self] in self?.toggleLaunchAtLogin() },
             setTheme: { [weak self] in self?.setTheme($0) },
             setMenuBarStyle: { [weak self] in self?.setMenuBarStyle($0) },
+            setMenuBarPin: { [weak self] in self?.setMenuBarPin($0) },
             toggleNotifyAt85: { [weak self] in self?.toggleNotifyAt85() },
             openNotificationSettings: { [weak self] in self?.notifier.openSystemSettings() },
             quit: { NSApplication.shared.terminate(nil) }
@@ -617,9 +625,38 @@ final class AppModel {
         MenuBarStyleStore.current = s
     }
 
+    /// Fixar (ou soltar) a janela da barra. `nil` = Automática.
+    ///
+    /// O rótulo é resolvido AQUI, do dashboard vivo — é o último momento em que a janela
+    /// certamente existe com nome. Id que não está na tela é ignorado: o menu só oferece
+    /// o que existe, então isso é um clique impossível, não um estado a inventar.
+    func setMenuBarPin(_ id: String?) {
+        guard id != menuBarPin?.id else { return }
+        if let id {
+            guard let lane = dashboard.lanes.first(where: { $0.id == id }) else { return }
+            menuBarPin = MenuBarPin(id: id, label: lane.pickerLabel)
+        } else {
+            menuBarPin = nil
+        }
+        MenuBarPinStore.current = menuBarPin   // sobrevive ao relaunch. `nil` APAGA as chaves.
+    }
+
+    /// As janelas que o picker oferece: as de provedor com tinta, na ordem da tela — mais a
+    /// fixada que sumiu, no fim, marcada indisponível. Orçamento fica de fora: ele não é uma
+    /// janela de provedor, e o §12 lista janelas.
+    private var menuBarPinOptions: [MenuBarPinOption] {
+        var options = dashboard.lanes
+            .filter { $0.provider != nil && $0.certainty.hasInk && $0.used != nil }
+            .map { MenuBarPinOption(id: $0.id, label: $0.pickerLabel, available: true) }
+        if let pin = menuBarPin, !options.contains(where: { $0.id == pin.id }) {
+            options.append(MenuBarPinOption(id: pin.id, label: pin.label, available: false))
+        }
+        return options
+    }
+
     /// O texto que a barra mostra ao lado da proveta, pro estilo escolhido. Vazio = só ícone.
     var menuBarText: String {
-        dashboard.menuBarText(style: menuBarStyle)
+        dashboard.menuBarText(style: menuBarStyle, pinnedID: menuBarPin?.id)
     }
 
     /// `nil` = o sistema não sabe dizer, e aí a opção SOME do menu em vez de mentir.

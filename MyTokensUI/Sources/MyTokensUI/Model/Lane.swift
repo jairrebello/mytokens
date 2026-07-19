@@ -88,6 +88,10 @@ public struct Lane: Identifiable, Sendable, Equatable {
     public let unit: WindowUnit
     public let capUSD: Decimal?
     public let burnRatePerHour: Double?
+    /// Modelo a que a janela se aplica (contrato v1.3). `nil` = conta inteira.
+    /// A pista não o desenha (é o §11, do Vitral); quem já o lê é o picker da barra,
+    /// que precisa distinguir "Semana" de "Semana · Fable" pra fixar a certa.
+    public let modelScope: String?
 
     /// Está queimando AGORA (evento recente). É a única coisa que acende a
     /// matiz ember — e ela não significa perigo, significa CALOR = atividade.
@@ -100,7 +104,7 @@ public struct Lane: Identifiable, Sendable, Equatable {
         used: Double?, certainty: Certainty, nowFraction: Double?,
         resetsAt: Date?, unit: WindowUnit = .percent,
         capUSD: Decimal? = nil, burnRatePerHour: Double? = nil,
-        isLive: Bool = false
+        isLive: Bool = false, modelScope: String? = nil
     ) {
         self.isLive = isLive
         self.id = id
@@ -113,6 +117,7 @@ public struct Lane: Identifiable, Sendable, Equatable {
         self.unit = unit
         self.capUSD = capUSD
         self.burnRatePerHour = burnRatePerHour
+        self.modelScope = modelScope
     }
 
     /// A pista de um provedor. É o caso esmagadoramente comum, então ele continua sendo o
@@ -123,13 +128,13 @@ public struct Lane: Identifiable, Sendable, Equatable {
         used: Double?, certainty: Certainty, nowFraction: Double?,
         resetsAt: Date?, unit: WindowUnit = .percent,
         capUSD: Decimal? = nil, burnRatePerHour: Double? = nil,
-        isLive: Bool = false
+        isLive: Bool = false, modelScope: String? = nil
     ) {
         self.init(
             id: id, owner: .provider(provider), title: title,
             used: used, certainty: certainty, nowFraction: nowFraction,
             resetsAt: resetsAt, unit: unit, capUSD: capUSD,
-            burnRatePerHour: burnRatePerHour, isLive: isLive
+            burnRatePerHour: burnRatePerHour, isLive: isLive, modelScope: modelScope
         )
     }
 
@@ -163,6 +168,18 @@ public struct Lane: Identifiable, Sendable, Equatable {
     }
 
     public var heat: Heat { Heat(percent: used ?? 0) }
+
+    /// O nome desta janela no picker "Mostrar na barra" (UI-SPEC §12).
+    ///
+    /// Janela primeiro, modelo como qualificador depois do middot (§11): "Claude · Semana ·
+    /// Fable" — nunca "Fable" sozinho, que leria como provedor. O guard contra o título já
+    /// conter o escopo existe porque o rótulo da janela é do provedor: se um dia a fonte
+    /// passar a escrever "Semana · Fable" no `label`, duplicar aqui viraria gagueira.
+    public var pickerLabel: String {
+        guard let scope = modelScope, !scope.isEmpty,
+              !title.localizedCaseInsensitiveContains(scope) else { return title }
+        return "\(title) · \(scope.capitalized)"
+    }
 
     /// Onde a tinta chega no fim da janela, no ritmo dos últimos 20 min.
     /// Só existe acima de 70% — abaixo disso é ruído: a resposta já é "pode ir".
@@ -321,7 +338,8 @@ extension Lane {
             unit: w.unit,
             capUSD: w.capUSD,
             burnRatePerHour: w.burnRatePerHour,
-            isLive: isLive
+            isLive: isLive,
+            modelScope: w.modelScope
         )
     }
 

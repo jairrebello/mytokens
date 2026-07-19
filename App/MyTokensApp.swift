@@ -20,9 +20,15 @@ struct MyTokensApp: App {
             Image(nsImage: StatusIcon.image(for: model.iconState))
             // O texto ao lado, se o usuário escolheu um estilo. Vazio (só ícone) não
             // renderiza Text nenhum — a barra fica idêntica a antes.
+            //
+            // Dígito tabular (UI-SPEC §12): sem ele, cada tick de 39%→41% muda a largura
+            // do glifo e o número DANÇA na barra. Sem cor, sem bold, sem piscar — a
+            // tensão é da tinta da proveta, e o texto segue o tint do sistema como o
+            // template. A largura resolve sozinha quando muda a contagem de dígitos:
+            // slot fixo de "~100%" cobraria espaço da barra o tempo todo.
             let barText = model.menuBarText
             if !barText.isEmpty {
-                Text(barText)
+                Text(barText).monospacedDigit()
             }
         }
         // .window, não .menu: SwiftUI de verdade lá dentro. É onde o Vitral trabalha.

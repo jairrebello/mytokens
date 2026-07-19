@@ -21,6 +21,11 @@ public struct AppControls {
     public var theme: Theme
     /// O que a barra mostra ao lado da proveta.
     public var menuBarStyle: MenuBarStyle
+    /// De QUAL janela a barra fala: `nil` = Automática, a que aperta primeiro (§12).
+    public var menuBarPin: MenuBarPin?
+    /// As janelas fixáveis AGORA — mais a fixada que sumiu, marcada indisponível.
+    /// Quem monta a lista é o modelo, do dashboard vivo; o menu só desenha.
+    public var menuBarPinOptions: [MenuBarPinOption]
     /// O hook do statusLine — a única fonte do "quanto RESTA" do Claude, e a única coisa que
     /// o app escreve na casa do usuário.
     ///
@@ -70,6 +75,8 @@ public struct AppControls {
     public var toggleLaunchAtLogin: () -> Void
     public var setTheme: (Theme) -> Void
     public var setMenuBarStyle: (MenuBarStyle) -> Void
+    /// `nil` volta pra Automática. Um id que não está no dashboard é ignorado pelo modelo.
+    public var setMenuBarPin: (String?) -> Void
     public var toggleNotifyAt85: () -> Void
     public var openNotificationSettings: () -> Void
     public var quit: () -> Void
@@ -79,6 +86,8 @@ public struct AppControls {
         launchesAtLogin: Bool? = nil,
         theme: Theme = .bancada,
         menuBarStyle: MenuBarStyle = .iconOnly,
+        menuBarPin: MenuBarPin? = nil,
+        menuBarPinOptions: [MenuBarPinOption] = [],
         hook: HookState = .indeciso,
         openHookPanel: @escaping () -> Void = {},
         budgetUSD: Decimal? = nil,
@@ -89,6 +98,7 @@ public struct AppControls {
         toggleLaunchAtLogin: @escaping () -> Void = {},
         setTheme: @escaping (Theme) -> Void = { _ in },
         setMenuBarStyle: @escaping (MenuBarStyle) -> Void = { _ in },
+        setMenuBarPin: @escaping (String?) -> Void = { _ in },
         toggleNotifyAt85: @escaping () -> Void = {},
         openNotificationSettings: @escaping () -> Void = {},
         quit: @escaping () -> Void = {}
@@ -97,6 +107,8 @@ public struct AppControls {
         self.launchesAtLogin = launchesAtLogin
         self.theme = theme
         self.menuBarStyle = menuBarStyle
+        self.menuBarPin = menuBarPin
+        self.menuBarPinOptions = menuBarPinOptions
         self.hook = hook
         self.openHookPanel = openHookPanel
         self.budgetUSD = budgetUSD
@@ -107,6 +119,7 @@ public struct AppControls {
         self.toggleLaunchAtLogin = toggleLaunchAtLogin
         self.setTheme = setTheme
         self.setMenuBarStyle = setMenuBarStyle
+        self.setMenuBarPin = setMenuBarPin
         self.toggleNotifyAt85 = toggleNotifyAt85
         self.openNotificationSettings = openNotificationSettings
         self.quit = quit
