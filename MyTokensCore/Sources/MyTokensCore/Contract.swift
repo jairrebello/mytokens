@@ -1,5 +1,10 @@
-// Tipos do contrato `contrato-dados` (v1.1). Fronteira Core <-> Views.
+// Tipos do contrato `contrato-dados` (v1.3). Fronteira Core <-> Views.
 // Mudou aqui? Atualiza a nota e avisa o Vitral ANTES.
+//
+// v1.3 (ADITIVO): LimitWindow ganhou modelScope. O Claude passou a publicar limite
+// POR MODELO (ex: semanal do Fable) além do limite da conta; sem este campo a view
+// não distingue "conta inteira" de "só este modelo" sem parsear o `id` — gambiarra.
+// nil = conta inteira, comportamento antigo intacto.
 //
 // v1.2 (ADITIVO): LimitWindow absorveu os campos que a view pedia e que o mirror dela
 // carregava em paralelo — startedAt, measuredAt, measuredPercent, lo/hi, burnRatePerHour,
@@ -175,6 +180,11 @@ public struct LimitWindow: Codable, Sendable, Identifiable, Equatable {
     /// Teto em US$ quando `unit == .usd`. `nil` em %.
     public var capUSD: Decimal?
 
+    /// Modelo a que o limite se aplica. `nil` = conta inteira (todos os modelos).
+    /// Ex: "fable" para o limite semanal do Fable. String livre de propósito:
+    /// modelo novo no provedor não pode exigir mudança de contrato.
+    public var modelScope: String?
+
     public init(
         id: String,
         label: String,
@@ -188,7 +198,8 @@ public struct LimitWindow: Codable, Sendable, Identifiable, Equatable {
         hi: Double? = nil,
         burnRatePerHour: Double? = nil,
         unit: WindowUnit = .percent,
-        capUSD: Decimal? = nil
+        capUSD: Decimal? = nil,
+        modelScope: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -203,6 +214,7 @@ public struct LimitWindow: Codable, Sendable, Identifiable, Equatable {
         self.burnRatePerHour = burnRatePerHour
         self.unit = unit
         self.capUSD = capUSD
+        self.modelScope = modelScope
     }
 }
 

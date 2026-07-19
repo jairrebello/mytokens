@@ -254,6 +254,37 @@ struct ParserTests {
         #expect(w[0].usedPercent == 42.5)
     }
 
+    @Test("statusLine: chave desconhecida de rate_limits vai pra extras, crua — não cai no chão")
+    func statusLineCapturesUnknownWindows() throws {
+        let stdin = """
+        {"rate_limits":{"five_hour":{"used_percentage":42.5,"resets_at":9999999999},
+        "seven_day_fable":{"used_percentage":77,"resets_at":9999999999},
+        "sem_percentual":{"resets_at":9999999999}}}
+        """.data(using: .utf8)!
+
+        let snap = try #require(ClaudeRateLimitReader.ingest(statusLineStdin: stdin))
+        #expect(snap.fiveHour?.usedPercentage == 42.5)
+        #expect(snap.extras?["seven_day_fable"]?.usedPercentage == 77)
+        // entrada sem used_percentage não é janela — não entra nem em extras
+        #expect(snap.extras?.count == 1)
+
+        // extras ainda NÃO viram LimitWindow: falta a tabela chave→(label, span,
+        // modelScope). Capturar sem emitir é o comportamento da etapa 1.
+        let w = ClaudeRateLimitReader.windows(from: snap, now: Date())
+        #expect(w.count == 1)
+    }
+
+    @Test("statusLine: payload SÓ com janela desconhecida ainda vira snapshot")
+    func statusLineOnlyUnknownWindowsStillIngests() throws {
+        let stdin = """
+        {"rate_limits":{"seven_day_opus":{"used_percentage":12,"resets_at":9999999999}}}
+        """.data(using: .utf8)!
+
+        let snap = try #require(ClaudeRateLimitReader.ingest(statusLineStdin: stdin))
+        #expect(snap.fiveHour == nil && snap.sevenDay == nil)
+        #expect(snap.extras?["seven_day_opus"]?.usedPercentage == 12)
+    }
+
     @Test("sem snapshot do statusLine -> ZERO janela. A view mostra 'não sabemos'.")
     func noSnapshotMeansNoWindow() throws {
         let dir = try TempDir()

@@ -25,6 +25,13 @@ public struct ClaudeRateLimitSnapshot: Codable, Sendable {
     public var capturedAt: Date
     public var fiveHour: Window?
     public var sevenDay: Window?
+    /// Janelas ALÉM de five_hour/seven_day, chaveadas pelo nome CRU do payload
+    /// (ex: "seven_day_fable"). O ingest captura genericamente qualquer entrada de
+    /// rate_limits com used_percentage+resets_at — chave nova do Claude Code não se
+    /// perde no chão esperando a gente atualizar o parser. Emitir como LimitWindow
+    /// depende da tabela chave→(label, span, modelScope), preenchida quando a chave
+    /// real for confirmada (Sonda).
+    public var extras: [String: Window]? = nil
 }
 
 public struct ClaudeRateLimitReader: Sendable {
@@ -99,18 +106,33 @@ public struct ClaudeRateLimitReader: Sendable {
               let limits = root["rate_limits"] as? [String: Any]
         else { return nil }
 
-        func window(_ key: String) -> ClaudeRateLimitSnapshot.Window? {
-            guard let w = limits[key] as? [String: Any],
+        func window(_ value: Any) -> ClaudeRateLimitSnapshot.Window? {
+            guard let w = value as? [String: Any],
                   let pct = (w["used_percentage"] as? NSNumber)?.doubleValue,
                   let resets = (w["resets_at"] as? NSNumber)?.doubleValue
             else { return nil }
             return .init(usedPercentage: pct, resetsAt: resets)
         }
 
-        let five = window("five_hour")
-        let seven = window("seven_day")
-        guard five != nil || seven != nil else { return nil }
-        return ClaudeRateLimitSnapshot(capturedAt: now, fiveHour: five, sevenDay: seven)
+        // Varre TODAS as chaves de rate_limits. As conhecidas vão pros campos
+        // nomeados; o resto (ex: janela por-modelo) vai em `extras` com a chave
+        // crua — capturar não exige saber o nome de antemão.
+        var five: ClaudeRateLimitSnapshot.Window?
+        var seven: ClaudeRateLimitSnapshot.Window?
+        var extras: [String: ClaudeRateLimitSnapshot.Window] = [:]
+        for (key, value) in limits {
+            guard let w = window(value) else { continue }
+            switch key {
+            case "five_hour": five = w
+            case "seven_day": seven = w
+            default: extras[key] = w
+            }
+        }
+        guard five != nil || seven != nil || !extras.isEmpty else { return nil }
+        return ClaudeRateLimitSnapshot(
+            capturedAt: now, fiveHour: five, sevenDay: seven,
+            extras: extras.isEmpty ? nil : extras
+        )
     }
 
     /// O hook está instalado? É o que o app pergunta pra decidir entre oferecer o
