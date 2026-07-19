@@ -187,19 +187,23 @@ struct ParserTests {
         let snap = CodexRateSnapshot(
             ts: passado,
             planType: "plus",
-            fiveHour: CodexWindow(usedPercent: 1, windowMinutes: 300, resetsAt: passado),
-            sevenDay: CodexWindow(usedPercent: 20, windowMinutes: 10080, resetsAt: passado)
+            limitId: "codex",
+            limitName: nil,
+            windows: [
+                CodexWindow(usedPercent: 1, windowMinutes: 300, resetsAt: passado),
+                CodexWindow(usedPercent: 20, windowMinutes: 10080, resetsAt: passado),
+            ]
         )
         let agora = Date(timeIntervalSince1970: 1_784_000_000)  // julho/2026
-        #expect(CodexCollector.windows(from: snap, now: agora).isEmpty)
+        #expect(CodexCollector.windows(from: ["codex": snap], now: agora).isEmpty)
 
         // Ainda válida -> aparece, e marcada como MEDIDA (o provedor nos deu).
         let futuro = agora.addingTimeInterval(3600)
         let viva = CodexRateSnapshot(
-            ts: agora, planType: "plus", fiveHour: nil,
-            sevenDay: CodexWindow(usedPercent: 42, windowMinutes: 10080, resetsAt: futuro)
+            ts: agora, planType: "plus", limitId: "codex", limitName: nil,
+            windows: [CodexWindow(usedPercent: 42, windowMinutes: 10080, resetsAt: futuro)]
         )
-        let w = CodexCollector.windows(from: viva, now: agora)
+        let w = CodexCollector.windows(from: ["codex": viva], now: agora)
         #expect(w.count == 1)
         #expect(w[0].label == "Semana")
         #expect(w[0].source == .measured)
@@ -210,14 +214,55 @@ struct ParserTests {
     func worksWithoutPrimaryWindow() {
         let agora = Date()
         let snap = CodexRateSnapshot(
-            ts: agora, planType: "plus",
-            fiveHour: nil,  // a 5h MORREU. Nada aqui depende dela.
-            sevenDay: CodexWindow(usedPercent: 33, windowMinutes: 10080,
-                                  resetsAt: agora.addingTimeInterval(86_400))
+            ts: agora, planType: "plus", limitId: "codex", limitName: nil,
+            // a 5h MORREU e voltou valendo outra coisa — nada aqui depende de posição.
+            windows: [CodexWindow(usedPercent: 33, windowMinutes: 10080,
+                                  resetsAt: agora.addingTimeInterval(86_400))]
         )
-        let w = CodexCollector.windows(from: snap, now: agora)
+        let w = CodexCollector.windows(from: ["codex": snap], now: agora)
         #expect(w.count == 1)
         #expect(w[0].id == "codex-7d")
+        #expect(w[0].modelScope == nil, "cota da conta não tem modelo")
+    }
+
+    @Test("Codex por-modelo: limit_id próprio vira janela qualificada, sem engolir a conta")
+    func perModelLimitBecomesQualifiedWindow() {
+        let agora = Date()
+        let futuro = agora.addingTimeInterval(86_400)
+        let conta = CodexRateSnapshot(
+            ts: agora, planType: "plus", limitId: "codex", limitName: nil,
+            windows: [CodexWindow(usedPercent: 33, windowMinutes: 10_080, resetsAt: futuro)]
+        )
+        // ARMADILHA D: o snapshot por-modelo é MAIS VELHO que o da conta — e mesmo
+        // assim sobrevive, porque o "agora" é por limit_id, não global.
+        let spark = CodexRateSnapshot(
+            ts: agora.addingTimeInterval(-3600), planType: "plus",
+            limitId: "codex_bengalfox", limitName: "GPT-5.3-Codex-Spark",
+            windows: [CodexWindow(usedPercent: 70, windowMinutes: 10_080, resetsAt: futuro)]
+        )
+        let w = CodexCollector.windows(from: ["codex": conta, "codex_bengalfox": spark], now: agora)
+        #expect(w.count == 2)
+        #expect(w[0].id == "codex-7d", "a conta abre a lista — ordem estável")
+        #expect(w[1].id == "codex-bengalfox-7d")
+        #expect(w[1].label == "Semana · GPT-5.3-Codex-Spark")
+        #expect(w[1].modelScope == "GPT-5.3-Codex-Spark")
+        #expect(w[1].measuredAt == spark.ts, "a idade do snapshot é a DELE, não a da conta")
+    }
+
+    @Test("Codex 30 dias: primary ressuscitada com window_minutes=43200 rotula pelo tempo")
+    func thirtyDayWindowLabeledByMinutes() {
+        let agora = Date()
+        let snap = CodexRateSnapshot(
+            ts: agora, planType: "free", limitId: "codex", limitName: nil,
+            // ARMADILHA C: é a MESMA posição "primary" que um dia foi 5h. Se o rótulo
+            // saísse da posição, isto viraria "5 horas" mentindo 30 dias.
+            windows: [CodexWindow(usedPercent: 12, windowMinutes: 43_200,
+                                  resetsAt: agora.addingTimeInterval(86_400))]
+        )
+        let w = CodexCollector.windows(from: ["codex": snap], now: agora)
+        #expect(w.count == 1)
+        #expect(w[0].id == "codex-30d")
+        #expect(w[0].label == "30 dias")
     }
 
     // MARK: - ISO8601
@@ -375,10 +420,14 @@ struct ParserTests {
         let fossil = CodexRateSnapshot(
             ts: ontem,
             planType: "plus",
-            fiveHour: CodexWindow(usedPercent: 1, windowMinutes: 300, resetsAt: ontem),
-            sevenDay: CodexWindow(usedPercent: 20, windowMinutes: 10_080, resetsAt: ontem)
+            limitId: "codex",
+            limitName: nil,
+            windows: [
+                CodexWindow(usedPercent: 1, windowMinutes: 300, resetsAt: ontem),
+                CodexWindow(usedPercent: 20, windowMinutes: 10_080, resetsAt: ontem),
+            ]
         )
-        #expect(CodexCollector.windows(from: fossil, now: Date()).isEmpty)
+        #expect(CodexCollector.windows(from: ["codex": fossil], now: Date()).isEmpty)
     }
 }
 

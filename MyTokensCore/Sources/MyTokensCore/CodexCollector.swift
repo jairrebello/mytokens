@@ -17,9 +17,15 @@
 // ARMADILHA B (SNAPSHOT): rate_limits.used_percent é um snapshot. O "agora" é o evento
 //   de maior TIMESTAMP GLOBAL, não o arquivo mais recente por nome/mtime.
 //
-// ARMADILHA C (5h MORREU): a janela primary/5h foi REMOVIDA do Codex em 2026-07-12.
-//   Só a secondary (semanal) sobrevive. O parser tolera as duas: lê primary se ainda vier
-//   (rollout velho tem), mas NADA aqui depende dela existir.
+// ARMADILHA C (JANELA NÃO É FIXA): a primary/5h sumiu em 2026-07-12 — e VOLTOU dias
+//   depois valendo OUTRA coisa (primary com window_minutes=43200 = 30 DIAS, plan free).
+//   Rotule por window_minutes (300=5h, 10080=semana, 43200=30 dias), NUNCA por posição.
+//
+// ARMADILHA D (POR limit_id): o rollout intercala rate_limits de limites DIFERENTES na
+//   mesma sessão — limit_id 'codex' (conta) e 'codex_bengalfox' (por-modelo,
+//   limit_name 'GPT-5.3-Codex-Spark'). O "agora" é POR limit_id, não global: o mais
+//   novo de um não substitui o mais novo do outro. v1 do schema não tinha limit_id —
+//   ausente = 'codex'.
 //
 // BUCKETS: no Codex, input_tokens JÁ INCLUI cached_input_tokens (conferido: total_tokens
 //   == input + output). Então input cobrável = input - cached, e cached é cache_read.
@@ -71,8 +77,14 @@ struct CodexCumulative: Sendable, Equatable {
 public struct CodexRateSnapshot: Sendable {
     public let ts: Date
     public let planType: String?
-    public let fiveHour: CodexWindow?   // legado: sumiu em 2026-07-12
-    public let sevenDay: CodexWindow?
+    /// De QUAL limite este snapshot fala. "codex" = a cota da conta (e o default do
+    /// schema v1, que não tinha o campo). "codex_bengalfox" etc = limite por-modelo.
+    public let limitId: String
+    /// Rótulo humano do limite (ex: "GPT-5.3-Codex-Spark"). Só nos schemas v2+.
+    public let limitName: String?
+    /// primary/secondary do payload, SEM significado posicional — quem diz o que cada
+    /// uma é são os window_minutes dela (armadilha C).
+    public let windows: [CodexWindow]
 }
 
 public struct CodexWindow: Sendable {
@@ -88,7 +100,8 @@ public struct CodexSessionDigest: Sendable {
     var sessionId = ""
     var project: String?
     var lineIndex = 0
-    public var rate: CodexRateSnapshot?
+    /// O snapshot mais NOVO de cada limit_id visto neste arquivo (armadilha D).
+    public var rates: [String: CodexRateSnapshot] = [:]
     /// só pra diagnóstico: o que a soma ingênua (todo token_count) daria.
     public var naiveTotal = 0
 }
@@ -152,14 +165,21 @@ public struct CodexFileParser: IncrementalFileParser {
                let tsRaw = o["timestamp"] as? String,
                let ts = ISO8601.date(tsRaw) {
                 // rate_limits pode vir null num token_count. Tolerado: só ignora.
-                let snap = CodexRateSnapshot(
-                    ts: ts,
-                    planType: rl["plan_type"] as? String,
-                    fiveHour: window(rl["primary"]),
-                    sevenDay: window(rl["secondary"])
-                )
-                if snap.fiveHour != nil || snap.sevenDay != nil {
-                    if d.rate.map({ ts > $0.ts }) ?? true { d.rate = snap }
+                // primary/secondary entram lado a lado — a posição não diz nada,
+                // window_minutes diz (armadilha C).
+                var ws: [CodexWindow] = []
+                if let w = window(rl["primary"]) { ws.append(w) }
+                if let w = window(rl["secondary"]) { ws.append(w) }
+                if !ws.isEmpty {
+                    let limitId = (rl["limit_id"] as? String) ?? "codex"  // v1 não tinha
+                    let snap = CodexRateSnapshot(
+                        ts: ts,
+                        planType: rl["plan_type"] as? String,
+                        limitId: limitId,
+                        limitName: rl["limit_name"] as? String,
+                        windows: ws
+                    )
+                    if d.rates[limitId].map({ ts > $0.ts }) ?? true { d.rates[limitId] = snap }
                 }
             }
 
@@ -251,7 +271,7 @@ public actor CodexCollector: UsageCollector {
     private struct Memo: Sendable {
         let events: [UsageEvent]
         let diagnostics: CodexDiagnostics
-        let rate: CodexRateSnapshot?
+        let rates: [String: CodexRateSnapshot]
     }
     private var memo: Memo?
 
@@ -298,16 +318,16 @@ public actor CodexCollector: UsageCollector {
         // Disco idêntico ao scan anterior? Os eventos também são. Só o status é refeito —
         // ele depende do relógio (a janela anda, o dia vira), os eventos não.
         let events: [UsageEvent]
-        let newest: CodexRateSnapshot?
+        let newest: [String: CodexRateSnapshot]
         var diag: CodexDiagnostics
 
         if !result.changed, let cache = memo {
-            (events, diag, newest) = (cache.events, cache.diagnostics, cache.rate)
+            (events, diag, newest) = (cache.events, cache.diagnostics, cache.rates)
         } else {
             (events, diag, newest) = Self.build(
                 digests: result.digests, pricing: pricing, files: files.count
             )
-            memo = Memo(events: events, diagnostics: diag, rate: newest)
+            memo = Memo(events: events, diagnostics: diag, rates: newest)
         }
         diag.scan = result.stats
 
@@ -327,19 +347,23 @@ public actor CodexCollector: UsageCollector {
         digests: [String: CodexSessionDigest],
         pricing: PricingTable,
         files: Int
-    ) -> ([UsageEvent], CodexDiagnostics, CodexRateSnapshot?) {
+    ) -> ([UsageEvent], CodexDiagnostics, [String: CodexRateSnapshot]) {
         var diag = CodexDiagnostics()
         diag.files = files
 
         var events: [UsageEvent] = []
-        var newest: CodexRateSnapshot?
+        var newest: [String: CodexRateSnapshot] = [:]
 
         for (_, d) in digests {
             if !d.rows.isEmpty { diag.sessionsWithUsage += 1 }
             diag.naiveTokens += d.naiveTotal
 
-            // ARMADILHA B: o "agora" é o maior timestamp GLOBAL, não o arquivo mais novo.
-            if let r = d.rate, newest.map({ r.ts > $0.ts }) ?? true { newest = r }
+            // ARMADILHA B: o "agora" é o maior timestamp GLOBAL, não o arquivo mais
+            // novo. E é POR limit_id (armadilha D): o snapshot mais fresco da conta
+            // não engole o mais fresco do limite por-modelo.
+            for (limitId, r) in d.rates {
+                if newest[limitId].map({ r.ts > $0.ts }) ?? true { newest[limitId] = r }
+            }
 
             for row in d.rows {
                 let cost = pricing.cost(model: row.model, tokens: row.tokens)
@@ -360,35 +384,66 @@ public actor CodexCollector: UsageCollector {
         }
 
         events.sort { $0.ts < $1.ts }
-        diag.planType = newest?.planType
+        // O plano é da CONTA — o snapshot por-modelo repete o mesmo plan_type, mas se
+        // divergir, quem fala pelo plano é o limite 'codex'.
+        diag.planType = (newest["codex"] ?? newest.values.max { $0.ts < $1.ts })?.planType
         return (events, diag, newest)
     }
 
     /// Janela VENCIDA não vai pra tela: um used_percent de um bloco que já morreu é um
     /// número velho fingindo ser o de agora. Vencida -> some. Regra 5.
-    static func windows(from snap: CodexRateSnapshot?, now: Date) -> [LimitWindow] {
-        guard let snap else { return [] }
+    ///
+    /// Um LimitWindow por janela viva de cada limit_id. O rótulo sai de
+    /// window_minutes (armadilha C) e o modelo qualifica depois do middot — a mesma
+    /// gramática do Claude ("Semana · Fable" em ClaudeOAuthUsage).
+    static func windows(from rates: [String: CodexRateSnapshot], now: Date) -> [LimitWindow] {
         var out: [LimitWindow] = []
 
-        // O snapshot foi lido do rollout em `snap.ts` — NÃO é de agora. `measuredAt`
-        // carrega essa idade pra tela, que é o que separa fato de palpite.
-        // O começo da janela sai de graça: o Codex publica a duração dela.
-        func window(_ w: CodexWindow?, id: String, label: String) -> LimitWindow? {
-            guard let w, w.resetsAt > now else { return nil }
-            return LimitWindow(
-                id: id,
-                label: label,
-                usedPercent: w.usedPercent,
-                resetsAt: w.resetsAt,
-                source: .measured,
-                startedAt: w.resetsAt.addingTimeInterval(-Double(w.windowMinutes) * 60),
-                measuredAt: snap.ts,
-                measuredPercent: w.usedPercent
-            )
+        // Ordem estável entre refreshes: a conta primeiro, por-modelo em ordem de id.
+        let snaps = rates.values.sorted {
+            ($0.limitId == "codex" ? 0 : 1, $0.limitId) < ($1.limitId == "codex" ? 0 : 1, $1.limitId)
         }
 
-        if let w = window(snap.fiveHour, id: "codex-5h", label: "5 horas") { out.append(w) }
-        if let w = window(snap.sevenDay, id: "codex-7d", label: "Semana") { out.append(w) }
+        for snap in snaps {
+            // Quem qualifica a linha é o NOME humano do limite; o id só entra na
+            // chave. limitName ausente num limite por-modelo → o id cru qualifica:
+            // feio e honesto, nunca fingindo ser a cota da conta.
+            let scope = snap.limitId == "codex" ? nil : (snap.limitName ?? snap.limitId)
+
+            for w in snap.windows where w.resetsAt > now {
+                let (suffix, base) = Self.span(minutes: w.windowMinutes)
+                let slug = snap.limitId.replacingOccurrences(of: "_", with: "-")
+                out.append(LimitWindow(
+                    id: "\(slug)-\(suffix)",
+                    label: scope.map { "\(base) · \($0)" } ?? base,
+                    usedPercent: w.usedPercent,
+                    resetsAt: w.resetsAt,
+                    source: .measured,
+                    // O snapshot foi lido do rollout em `snap.ts` — NÃO é de agora.
+                    // `measuredAt` carrega essa idade pra tela. O começo da janela
+                    // sai de graça: o Codex publica a duração dela.
+                    startedAt: w.resetsAt.addingTimeInterval(-Double(w.windowMinutes) * 60),
+                    measuredAt: snap.ts,
+                    measuredPercent: w.usedPercent,
+                    modelScope: scope
+                ))
+            }
+        }
         return out
+    }
+
+    /// window_minutes → (sufixo de id, rótulo humano). Os três valores VISTOS têm
+    /// nome próprio; o resto ganha um rótulo derivado em vez de sumir — janela nova
+    /// do rollout não pode cair no chão esperando a gente aprender o nome dela.
+    private static func span(minutes: Int) -> (suffix: String, label: String) {
+        switch minutes {
+        case 300:    ("5h",  "5 horas")
+        case 10_080: ("7d",  "Semana")
+        case 43_200: ("30d", "30 dias")
+        default:
+            minutes % 1440 == 0
+                ? ("\(minutes / 1440)d", "\(minutes / 1440) dias")
+                : ("\(minutes)m", "\(minutes) min")
+        }
     }
 }
