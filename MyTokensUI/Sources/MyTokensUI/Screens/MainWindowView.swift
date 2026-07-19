@@ -96,7 +96,13 @@ public struct MainWindowView: View {
             footer
         }
         .frame(width: 960, alignment: .leading)
-        .background(p.canvas)
+        .background {
+            ZStack {
+                p.canvas
+                // A gramática de console: grid + vinheta atrás de tudo.
+                if p.console { ConsoleChrome() }
+            }
+        }
         .theme(theme)
     }
 
@@ -113,13 +119,13 @@ public struct MainWindowView: View {
                 HStack(spacing: S.s3) {
                     if snapshot.isEmpty { EmptyPulse() }
                     Text(verdict.headline)
-                        .font(.ui(T.xxxl, .semibold))
+                        .font(p.ui(T.xxxl, .semibold))
                         .tracking(-0.035 * T.xxxl)
                         .foregroundStyle(verdict.heat == .over ? p.emberHot : p.ink0)
                 }
 
                 RichText(verdict.detail, base: p.ink2, strong: p.ink0)
-                    .font(.ui(T.md))
+                    .font(p.ui(T.md))
                     .lineSpacing(4)
                     .frame(maxWidth: 640, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -171,11 +177,11 @@ public struct MainWindowView: View {
     private func metric(_ label: String, _ value: String, spoken: String, hot: Bool) -> some View {
         HStack(spacing: S.s2) {
             Text(label.uppercased())
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
             Text(value)
-                .font(.num(T.lg, hot ? .semibold : .regular))
+                .font(p.num(T.lg, hot ? .semibold : .regular))
                 .foregroundStyle(hot ? p.emberHot : p.ink1)
         }
         .padding(.trailing, S.s3)
@@ -281,7 +287,7 @@ public struct MainWindowView: View {
                 "O orçamento é um PISO: o Claude reescreve sessões antigas, e o que sai do "
                 + "disco sai daqui. O Cursor não entra — ele mede crédito incluído."
             )
-            .font(.ui(T.xs))
+            .font(p.ui(T.xs))
             .foregroundStyle(p.ink4)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, S.s2)
@@ -294,7 +300,7 @@ public struct MainWindowView: View {
     private var axisHeader: some View {
         GridRow {
             Text("JANELA")
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
                 .frame(width: Self.nameColumn, alignment: .leading)
@@ -303,7 +309,7 @@ public struct MainWindowView: View {
                 GeometryReader { geo in
                     ForEach([(0.0, "0%"), (0.5, "50% da janela"), (1.0, "100%")], id: \.0) { pos, label in
                         Text(label)
-                            .font(.ui(T.micro))
+                            .font(p.ui(T.micro))
                             .tracking(0.05 * T.micro)
                             .foregroundStyle(p.ink4)
                             .fixedSize()
@@ -318,7 +324,7 @@ public struct MainWindowView: View {
             .frame(minWidth: Self.laneMin, idealWidth: Self.laneIdeal, maxWidth: .infinity)
 
             Text("FONTE")
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
                 // É esta coluna que o Grid dimensiona pelo MAIOR número da tela. O
@@ -354,14 +360,20 @@ public struct MainWindowView: View {
     /// quando todas as linhas do grupo compartilham fonte e carimbo.
     private func benchGroupHeader(_ group: LedgerGroup) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: S.s2) {
+            // O glifo de console (⌐) é CHROME — e chrome fala red de marca.
+            if p.console {
+                Text("⌐")
+                    .font(p.num(T.micro, .medium))
+                    .foregroundStyle(p.ember)
+            }
             Text(group.title.uppercased())
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
             Spacer(minLength: S.s1)
             if let hoisted = group.hoistedProvenance {
                 Text(hoisted)
-                    .font(.num(T.micro))
+                    .font(p.num(T.micro))
                     .tracking(0.03 * T.micro)
                     .foregroundStyle(p.ink3)
             }
@@ -387,14 +399,14 @@ public struct MainWindowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 if grouped {
                     Text(lane.groupedTitle)
-                        .font(.ui(T.md, .medium))
+                        .font(p.ui(T.md, .medium))
                         .foregroundStyle(p.ink0)
                 } else {
                     Text(lane.ownerName)
-                        .font(.ui(T.md, .medium))
+                        .font(p.ui(T.md, .medium))
                         .foregroundStyle(p.ink0)
                     Text(lane.windowLabel)
-                        .font(.ui(T.xs))
+                        .font(p.ui(T.xs))
                         .foregroundStyle(p.ink3)
                 }
             }
@@ -421,7 +433,7 @@ public struct MainWindowView: View {
                         // na linha (§11) — o carimbo é o mesmo pra todas.
                         if !hoisted {
                             Text(lane.provenanceNote)
-                                .font(.ui(T.micro))
+                                .font(p.ui(T.micro))
                                 .tracking(0.05 * T.micro)
                                 .foregroundStyle(p.ink3)
                                 .accessibilityHidden(true)   // idem: a certeza abre a frase
@@ -433,7 +445,7 @@ public struct MainWindowView: View {
                         // que o próprio usuário digitou — ver PopoverView)
                         Button("conectar") { onConnect(provider) }
                             .buttonStyle(.plain)
-                            .font(.ui(T.xs))
+                            .font(p.ui(T.xs))
                             .foregroundStyle(p.ember)
                             .overlay(alignment: .bottom) {
                                 Rectangle().fill(p.ember.opacity(0.35))
@@ -522,7 +534,7 @@ public struct MainWindowView: View {
                 "Dia hachurado é dia SEM REGISTRO — não é dia sem gasto. "
                 + "O Claude reescreve sessões antigas, e o que sai do disco sai daqui."
             )
-            .font(.ui(T.xs))
+            .font(p.ui(T.xs))
             .foregroundStyle(p.ink4)
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -555,7 +567,7 @@ public struct MainWindowView: View {
             // não é de magnitude, é de NATUREZA — isto é preço de API, não a conta que a
             // Anthropic vai te cobrar. Isso não cabe num sinal de pontuação; cabe numa frase.
             Text("Custo estimado a preço de API (pricing.json). Não é a sua fatura.")
-                .font(.ui(T.xs))
+                .font(p.ui(T.xs))
                 .foregroundStyle(p.ink3)
                 .lineLimit(1)
                 .layoutPriority(-1)   // quem cede largura primeiro é a nota, nunca o número
@@ -564,7 +576,7 @@ public struct MainWindowView: View {
 
             HStack(spacing: S.s2) {
                 Text("HOJE")
-                    .font(.ui(T.micro, .medium))
+                    .font(p.ui(T.micro, .medium))
                     .tracking(0.09 * T.micro)
                     .foregroundStyle(p.ink3)
                 // Custo é a ÚNICA coisa que a soma de token pode virar.
@@ -575,7 +587,7 @@ public struct MainWindowView: View {
                 // 4608 imprimia "US$ 4608,00" enquanto a lista de projetos, do lado, imprimia
                 // "US$ 4.608,00". Dois jeitos de escrever o mesmo dinheiro na mesma tela.
                 Text(Verdict.usd(snapshot.todayCostUSD))
-                    .font(.num(T.sm))
+                    .font(p.num(T.sm))
                     .foregroundStyle(p.ink1)
             }
             // "US$" é sigla pro olho. Pro ouvido é "dólares" — e o valor continua

@@ -35,6 +35,8 @@ enum Shot: String, CaseIterable {
     case realWindow       // idem, na janela expandida
     case realTerminal     // idem, no tema Terminal (fósforo verde)
     case realTerminalWindow
+    case realConsole      // idem, no tema Console (a marca: preto, mono, red)
+    case realConsoleWindow
     /// O disco desta máquina COM um orçamento de US$ 200 injetado.
     ///
     /// Ele é injetado, e não lido do `BudgetStore`, porque a galeria não tem o UserDefaults do
@@ -57,14 +59,15 @@ enum Shot: String, CaseIterable {
         case .reset: Mock.justReset
         case .overrun: Mock.overrun
         case .lanes: Mock.normal
-        case .real, .realWindow, .realTerminal, .realTerminalWindow, .realBudget, .realBudgetPopover:
+        case .real, .realWindow, .realTerminal, .realTerminalWindow, .realBudget, .realBudgetPopover,
+             .realConsole, .realConsoleWindow:
             Dashboard(lanes: [])   // substituído no launch pela leitura de verdade
         }
     }
 
     var isWindow: Bool {
         self == .window || self == .windowAlmost || self == .realWindow
-            || self == .realTerminalWindow || self == .realBudget
+            || self == .realTerminalWindow || self == .realBudget || self == .realConsoleWindow
     }
 
     var size: CGSize {
@@ -74,7 +77,7 @@ enum Shot: String, CaseIterable {
         // imprime): a janela da galeria é chumbada, e se ela for menor que o conteúdo, o
         // desenho é espremido e a foto mente sobre o espaçamento. Maior, o `Spacer` só abre
         // um vão morto antes do rodapé — que não engana ninguém.
-        case .window, .windowAlmost, .realWindow, .realTerminalWindow, .realBudget:
+        case .window, .windowAlmost, .realWindow, .realTerminalWindow, .realBudget, .realConsoleWindow:
             CGSize(width: 960, height: 1040)
         default: CGSize(width: 380, height: 560)   // popover + folga pro desktop
         }
@@ -169,6 +172,10 @@ struct GalleryRoot: View {
             DesktopBacking { RealStage(window: false, theme: .terminal) }
         case .realTerminalWindow:
             RealStage(window: true, theme: .terminal)
+        case .realConsole:
+            DesktopBacking { RealStage(window: false, theme: .brand) }
+        case .realConsoleWindow:
+            RealStage(window: true, theme: .brand)
         case .realBudget:
             RealStage(window: true, theme: .bancada, budgetUSD: 200)
         case .realBudgetPopover:
@@ -311,11 +318,11 @@ struct LaneShowcase: View {
                 HStack(alignment: .center, spacing: S.s5) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(name)
-                            .font(.ui(T.micro, .semibold))
+                            .font(p.ui(T.micro, .semibold))
                             .tracking(0.09 * T.micro)
                             .foregroundStyle(p.ink2)
                         Text(why)
-                            .font(.ui(T.xs))
+                            .font(p.ui(T.xs))
                             .foregroundStyle(p.ink4)
                             .fixedSize(horizontal: false, vertical: true)
                     }

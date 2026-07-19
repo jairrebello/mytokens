@@ -54,7 +54,7 @@ public struct ValueText: View {
     public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             Text(lane.displayValue)
-                .font(.num(size, weight))
+                .font(p.num(size, weight))
                 .foregroundStyle(color)
                 .tracking(tracking)
                 .numericValueTransition()   // o número TROCA, não pisca — e não rola
@@ -66,7 +66,7 @@ public struct ValueText: View {
                 // matando: 32% de um crédito em US$ e 32% de uma cota opaca não
                 // são a mesma coisa.
                 Text(suffix)
-                    .font(.num(size * 0.62, .regular))
+                    .font(p.num(size * 0.62, .regular))
                     .foregroundStyle(p.ink3)
             }
         }
@@ -87,7 +87,7 @@ public struct RangeText: View {
     public var body: some View {
         if let r = lane.displayRange {
             Text(r)
-                .font(.num(T.xs, .regular))
+                .font(p.num(T.xs, .regular))
                 .foregroundStyle(p.ink3)
         }
     }
@@ -153,7 +153,7 @@ public struct ProvenanceLegend: View {
             swatch()
                 .accessibilityHidden(true)   // a amostra da textura é puro ornamento
             Text(label.uppercased())
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.05 * T.micro)
                 .foregroundStyle(p.ink3)
         }

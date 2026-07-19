@@ -12,6 +12,9 @@ public enum Theme: String, CaseIterable, Sendable, Identifiable {
     case bancada
     /// Fósforo verde sobre vidro preto. Um VT220 no escuro. Sempre escuro.
     case terminal
+    /// O console da marca: preto #0A0A0A, tudo mono, red como chrome.
+    /// O visual dos apps do Jair (norte-ux, "TEMA-BRAND"). Sempre escuro.
+    case brand
 
     public var id: String { rawValue }
 
@@ -20,6 +23,7 @@ public enum Theme: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .bancada: "Bancada"
         case .terminal: "Terminal"
+        case .brand: "Console"
         }
     }
 
@@ -32,6 +36,7 @@ public enum Theme: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .bancada:  .forScheme(scheme)
         case .terminal: .terminal
+        case .brand:    .brand   // console claro não existe; o esquema não o alcança
         }
     }
 }

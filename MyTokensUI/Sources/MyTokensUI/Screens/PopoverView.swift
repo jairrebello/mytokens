@@ -70,8 +70,12 @@ public struct PopoverView: View {
 
     private var surface: some View {
         ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(p.surface.opacity(p.isDark ? 0.88 : 0.80))
+            // No Console o popover é OPACO — exceção consciente à vibrancy: a
+            // identidade do Bancada é o vidro; a deste tema é o console preto.
+            if !p.console {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+            Rectangle().fill(p.console ? p.surface : p.surface.opacity(p.isDark ? 0.88 : 0.80))
         }
     }
 
@@ -84,13 +88,13 @@ public struct PopoverView: View {
             HStack(spacing: S.s2) {
                 if snapshot.isEmpty { EmptyPulse() }
                 Text(verdict.headline)
-                    .font(.ui(T.xl, .semibold))
+                    .font(p.ui(T.xl, .semibold))
                     .tracking(-0.03 * T.xl)
                     .foregroundStyle(verdict.heat == .over ? p.emberHot : p.ink0)
                     .contentTransition(.opacity)
             }
             RichText(verdict.detail, base: p.ink2, strong: p.ink1)
-                .font(.ui(T.xs))
+                .font(p.ui(T.xs))
                 .lineSpacing(2.5)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -139,14 +143,20 @@ public struct PopoverView: View {
     /// direita, e SÓ quando todas as linhas do grupo compartilham o carimbo.
     private func groupHeader(_ group: LedgerGroup) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: S.s2) {
+            // O glifo de console (⌐) é CHROME — e chrome fala red de marca.
+            if p.console {
+                Text("⌐")
+                    .font(p.num(T.micro, .medium))
+                    .foregroundStyle(p.ember)
+            }
             Text(group.title.uppercased())
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
             Spacer(minLength: S.s1)
             if let hoisted = group.hoistedProvenance {
                 Text(hoisted)
-                    .font(.num(T.micro))
+                    .font(p.num(T.micro))
                     .tracking(0.03 * T.micro)
                     .foregroundStyle(p.ink3)
             }
@@ -170,7 +180,7 @@ public struct PopoverView: View {
                 // Dentro de um grupo o dono já está no header — a linha diz só
                 // a janela: "5 h", "Semana · Fable". Fora, o título inteiro.
                 Text(grouped ? lane.groupedTitle : lane.title)
-                    .font(.ui(T.sm, .medium))
+                    .font(p.ui(T.sm, .medium))
                     .foregroundStyle(p.ink0)
                     .lineLimit(1)          // o TÍTULO cede, não o dado
                 Spacer(minLength: S.s2)
@@ -186,14 +196,14 @@ public struct PopoverView: View {
 
             HStack(spacing: S.s2) {
                 Text(footnote(lane, hoisted: hoisted))
-                    .font(.num(T.micro))
+                    .font(p.num(T.micro))
                     .tracking(0.03 * T.micro)
                     .foregroundStyle(p.ink3)
                     .accessibilityHidden(true)   // a procedência já está na fala da pista
                 Spacer(minLength: S.s1)
                 if lane.certainty.hasInk {
                     Text(lane.displayReset ?? "")
-                        .font(.num(T.micro))
+                        .font(p.num(T.micro))
                         .tracking(0.03 * T.micro)
                         .foregroundStyle(p.ink3)
                         .accessibilityHidden(true)   // idem: "zera às 16:50" já foi dito
@@ -213,7 +223,7 @@ public struct PopoverView: View {
                     // que não existe.
                     Button("conectar") { onConnect(provider) }
                         .buttonStyle(.plain)
-                        .font(.ui(T.xs))
+                        .font(p.ui(T.xs))
                         .foregroundStyle(p.ember)
                         .overlay(alignment: .bottom) {
                             Rectangle().fill(p.ember.opacity(0.35)).frame(height: 1).offset(y: 2)
@@ -266,7 +276,7 @@ public struct PopoverView: View {
             Button(action: onOpenWindow) {
                 HStack(spacing: 4) {
                     Text("ABRIR")
-                        .font(.ui(T.micro, .medium))
+                        .font(p.ui(T.micro, .medium))
                         .tracking(0.06 * T.micro)
                     // O ⌘⏎ é lembrete de atalho, não conteúdo: dois glifos que o
                     // VoiceOver leria como "command, return" no meio do rótulo.
@@ -448,6 +458,7 @@ struct EmptyPulse: View {
 // AttributedString resolve sem trazer um parser de markdown pra dentro da view.
 
 struct RichText: View {
+    @Environment(\.palette) private var p
     let raw: String
     let base: Color
     let strong: Color
@@ -468,7 +479,7 @@ struct RichText: View {
         for chunk in raw.components(separatedBy: "**") {
             var piece = AttributedString(chunk)
             piece.foregroundColor = isStrong ? strong : base
-            if isStrong { piece.font = .ui(T.xs, .medium) }
+            if isStrong { piece.font = p.ui(T.xs, .medium) }
             out.append(piece)
             isStrong.toggle()
         }

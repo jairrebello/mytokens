@@ -110,7 +110,7 @@ public struct DayRack: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("ÚLTIMOS 30 DIAS")
-                .font(.ui(T.micro, .medium))
+                .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
                 .foregroundStyle(p.ink3)
 
@@ -128,29 +128,29 @@ public struct DayRack: View {
             // (é ESTADO, não chrome); só na ausência das duas o visor volta pro período.
             if let i = hovered ?? selectedIndex, days.indices.contains(i) {
                 Text(Self.dayLabel(days[i].start, isToday: i == days.count - 1))
-                    .font(.ui(T.xs))
+                    .font(p.ui(T.xs))
                     .foregroundStyle(p.ink3)
                 if let c = days[i].costUSD {
                     Text(Verdict.usd(c))
-                        .font(.num(T.lg, .medium))
+                        .font(p.num(T.lg, .medium))
                         .foregroundStyle(p.ink0)
                 } else {
                     // O dia sem registro NÃO vira "US$ 0,00" nem no visor. Ele vira a
                     // mesma palavra que a pista ausente usa há três telas.
                     Text("sem registro")
-                        .font(.ui(T.sm))
+                        .font(p.ui(T.sm))
                         .foregroundStyle(p.ink4)
                 }
             } else {
                 Text("SOMA")
-                    .font(.ui(T.micro, .medium))
+                    .font(p.ui(T.micro, .medium))
                     .tracking(0.09 * T.micro)
                     .foregroundStyle(p.ink3)
                 // Sem UM dia de registro no período, a soma não é `US$ 0,00` — é `—`.
                 // Zero seria afirmar que você não gastou nada em 30 dias, e o que a gente
                 // tem é o oposto disso: nenhuma prova de coisa nenhuma.
                 Text(history.hasAnyRecord ? Verdict.usd(history.totalUSD) : "—")
-                    .font(.num(T.lg, .medium))
+                    .font(p.num(T.lg, .medium))
                     .foregroundStyle(history.hasAnyRecord ? p.ink0 : p.ink4)
                     .numericValueTransition()
             }
@@ -235,7 +235,9 @@ public struct DayRack: View {
                     // pricing.json. A listra deita porque a tinta sobe (ver Hatch) — e o piso
                     // de 2 pt existe porque um dia de US$ 0,03 é um dia que ACONTECEU: ele
                     // merece um traço de tinta, não um arredondamento pra invisível.
-                    Hatch(color: isToday && history.liveToday ? p.ember : p.emberCold,
+                    // `laneLive/laneCold`: no Console o ember é red de marca, e
+                    // red nunca pinta dado — a paleta resolve a tinta, não a view.
+                    Hatch(color: isToday && history.liveToday ? p.laneLive : p.laneCold,
                           horizontal: true)
                         .frame(width: w, height: max(2, h * v / scale.max))
                 }
@@ -257,6 +259,13 @@ public struct DayRack: View {
             }
         }
         .frame(width: w, height: h, alignment: .bottom)
+        // No Console a seleção fala a língua da marca: sublinhado 2 px red.
+        // Seleção é CHROME — é exatamente o red que o tema permite.
+        .overlay(alignment: .bottom) {
+            if isSelected, p.console {
+                Rectangle().fill(p.ember).frame(height: 2)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture { toggle(day) }
         .motion(.data, value: day.costUSD)
@@ -275,7 +284,7 @@ public struct DayRack: View {
                 .offset(x: Self.gutter, y: -y)
 
             Text(Self.round(v))
-                .font(.ui(T.micro))
+                .font(p.ui(T.micro))
                 .foregroundStyle(p.ink4)
                 .frame(width: Self.gutter - 10, height: 12, alignment: .trailing)
                 .offset(y: -y + 6)
@@ -294,7 +303,7 @@ public struct DayRack: View {
             ForEach(Array(stride(from: days.count - 1, through: 0, by: -7)), id: \.self) { i in
                 let isToday = i == days.count - 1
                 Text(isToday ? "hoje" : Self.shortDate(days[i].start))
-                    .font(.ui(T.micro))
+                    .font(p.ui(T.micro))
                     .foregroundStyle(isToday ? p.ink3 : p.ink4)
                     .fixedSize()
                     .frame(width: cw + 40, alignment: .center)

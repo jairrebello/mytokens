@@ -36,6 +36,58 @@ public struct Palette: Sendable {
 
     public let isDark: Bool
 
+    // MARK: - Traços de tema
+    //
+    // O Console (tema brand) precisa dizer três coisas que Bancada e Terminal
+    // nunca precisaram: que a UI inteira é mono, que o chrome fala a gramática
+    // de console (glifos, grid, popover opaco), e que a tinta de DADO não é o
+    // ember — porque lá o ember é RED, e red é MARCA, nunca estado de dado.
+    // São `var` com default pra os temas existentes nem saberem que existem.
+
+    /// SF Mono em TUDO — UI e números. Pesos acima de .medium são clampados:
+    /// SF Mono bold engorda; medium é o "bold" do tema mono.
+    public var monoUI: Bool = false
+
+    /// A gramática de console: glifos de chrome (⌐ no header de grupo), grid
+    /// de fundo na janela grande, vinheta, popover OPACO (exceção consciente à
+    /// vibrancy — a identidade deste tema é o console preto, não o vidro).
+    /// Liga tudo junto de propósito: é UMA identidade, não quatro toggles.
+    public var console: Bool = false
+
+    /// Tinta da pista quando o tema separa DADO de CHROME. `nil` = o ember é a
+    /// tinta, como sempre foi. No Console a tinta é bone (#EDEDED) e o ember
+    /// vira o red de marca — que nunca pode pintar um dado.
+    public var laneInkLive: Color?
+    public var laneInkCold: Color?
+
+    /// A tinta que as views usam de fato. Um caminho só — nenhuma view decide
+    /// sozinha se o tema separa dado de chrome.
+    public var laneLive: Color { laneInkLive ?? ember }
+    public var laneCold: Color { laneInkCold ?? emberCold }
+
+    // MARK: - Fonte via paleta
+    //
+    // `.font(.ui(...))` era estático e servia enquanto todo tema usava as duas
+    // famílias nos mesmos papéis. O Console quebra isso (mono em tudo), então a
+    // fonte passa a sair da PALETA — mesmo canal do resto do vocabulário visual.
+
+    /// Rótulo humano. SF Pro — ou SF Mono inteiro, se o tema é mono.
+    public func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        monoUI ? .num(size, Self.monoWeight(weight)) : .ui(size, weight)
+    }
+
+    /// Número medido. Sempre mono; o tema mono só clampa o peso.
+    public func num(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        monoUI ? .num(size, Self.monoWeight(weight)) : .num(size, weight)
+    }
+
+    private static func monoWeight(_ w: Font.Weight) -> Font.Weight {
+        switch w {
+        case .semibold, .bold, .heavy, .black: .medium
+        default: w
+        }
+    }
+
     public static let dark = Palette(
         canvas:    Color(oklch: 0.165, 0.006, 60),
         surface:   Color(oklch: 0.205, 0.007, 60),

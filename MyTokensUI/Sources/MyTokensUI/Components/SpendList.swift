@@ -71,7 +71,7 @@ public struct SpendList: View {
         VStack(alignment: .leading, spacing: S.s3) {
             HStack(alignment: .firstTextBaseline, spacing: S.s2) {
                 Text(title)
-                    .font(.ui(T.micro, .medium))
+                    .font(p.ui(T.micro, .medium))
                     .tracking(0.09 * T.micro)
                     .foregroundStyle(p.ink3)
 
@@ -79,7 +79,7 @@ public struct SpendList: View {
                 // solta (sem tracking de caixa-alta): é aviso, não título.
                 if let subtitle {
                     Text(subtitle)
-                        .font(.ui(T.xs))
+                        .font(p.ui(T.xs))
                         .foregroundStyle(p.ink4)
                 }
             }
@@ -88,7 +88,7 @@ public struct SpendList: View {
             if cuts.isEmpty {
                 // Nada custou nada. Travessão — nunca um zero.
                 Text("—")
-                    .font(.num(T.lg))
+                    .font(p.num(T.lg))
                     .foregroundStyle(p.ink4)
                     .padding(.top, S.s1)
             } else {
@@ -122,7 +122,7 @@ public struct SpendList: View {
     private func row(_ cut: History.Cut) -> some View {
         GridRow {
             Text(cut.label)
-                .font(.ui(T.sm))
+                .font(p.ui(T.sm))
                 .foregroundStyle(p.ink1)
                 .lineLimit(1)
                 .truncationMode(.middle)   // nome de repo é longo NO MEIO, não no fim
@@ -135,7 +135,7 @@ public struct SpendList: View {
                     Rectangle()
                         .fill(p.track)
                         .frame(height: Self.laneHeight)
-                    Hatch(color: p.emberCold)
+                    Hatch(color: p.laneCold)
                         .frame(width: max(1, geo.size.width * cut.share), height: Self.laneHeight)
                 }
                 .frame(height: Self.laneHeight, alignment: .leading)
@@ -144,7 +144,7 @@ public struct SpendList: View {
             .motion(.data, value: cut.share)
 
             Text(Verdict.usd(cut.costUSD))
-                .font(.num(T.sm, .medium))
+                .font(p.num(T.sm, .medium))
                 .foregroundStyle(p.ink0)
                 .gridColumnAlignment(.trailing)
                 .fixedSize(horizontal: true, vertical: false)   // dado não trunca. NUNCA.
@@ -162,7 +162,7 @@ public struct SpendList: View {
     private func minor(_ label: String, _ cost: Decimal) -> some View {
         GridRow {
             Text(label)
-                .font(.ui(T.xs))
+                .font(p.ui(T.xs))
                 .foregroundStyle(p.ink3)
                 .lineLimit(1)
                 .frame(maxWidth: Self.nameCap, alignment: .leading)
@@ -170,7 +170,7 @@ public struct SpendList: View {
             Color.clear.frame(height: 1)   // a coluna da pista fica VAZIA, e de propósito
 
             Text(Verdict.usd(cost))
-                .font(.num(T.xs))
+                .font(p.num(T.xs))
                 .foregroundStyle(p.ink3)
                 .fixedSize(horizontal: true, vertical: false)
         }

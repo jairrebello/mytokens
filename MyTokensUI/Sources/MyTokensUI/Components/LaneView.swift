@@ -29,7 +29,9 @@ public struct LaneView: View {
         self.showNeedle = showNeedle
     }
 
-    private var inkColor: Color { lane.isLive ? p.ember : p.emberCold }
+    // `laneLive/laneCold`, não `ember/emberCold` direto: no tema Console o ember
+    // é o red de marca e red nunca pinta dado — a paleta resolve, não a view.
+    private var inkColor: Color { lane.isLive ? p.laneLive : p.laneCold }
 
     public var body: some View {
         GeometryReader { geo in
@@ -171,7 +173,7 @@ public struct LaneView: View {
     /// Corte reto — 2 px sólidos. Só o MEDIDO ganha isto.
     private var straightCap: some View {
         Rectangle()
-            .fill(lane.isLive ? p.ember : p.ink0)
+            .fill(lane.isLive ? p.laneLive : p.ink0)
             .frame(width: 2, height: height + 6)
             .shadow(color: lane.isLive ? p.emberGlow : .clear, radius: 5)
             .offset(x: 1)
