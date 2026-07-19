@@ -206,12 +206,27 @@ public struct MainWindowView: View {
         VStack(alignment: .leading, spacing: 0) {
             Grid(alignment: .leading, horizontalSpacing: S.s4, verticalSpacing: 0) {
                 axisHeader
-                ForEach(snapshot.lanes) { lane in
-                    // Uma view solta dentro do Grid ocupa uma linha que ATRAVESSA todas as
-                    // colunas — é assim que o fio continua indo de ponta a ponta agora que
-                    // ele não pode mais ser um `.overlay` da linha inteira.
+
+                // O HERÓI — fora de grupo, sozinho no topo (UI-SPEC §11). A pergunta
+                // "posso continuar?" é respondida por UMA janela; dentro de um grupo
+                // ela viraria linha de lista. A linha dele não se repete embaixo.
+                if let hero = snapshot.tightest {
+                    // Uma view solta dentro do Grid ocupa uma linha que ATRAVESSA todas
+                    // as colunas — é assim que o fio vai de ponta a ponta.
                     Rectangle().fill(p.lineSoft).frame(height: 1)
-                    benchRow(lane)
+                    benchRow(hero)
+                }
+
+                // O LIVRO-RAZÃO com donos: headers SEMPRE na janela grande — até o
+                // Cursor sem credencial é um grupo, com a linha "conectar" de sempre.
+                ForEach(snapshot.ledger) { group in
+                    benchGroupHeader(group)
+                    ForEach(Array(group.lanes.enumerated()), id: \.element.id) { i, lane in
+                        if i > 0 {
+                            Rectangle().fill(p.lineSoft).frame(height: 1)
+                        }
+                        benchRow(lane, grouped: true, hoisted: group.hoistedProvenance != nil)
+                    }
                 }
             }
 
@@ -334,17 +349,54 @@ public struct MainWindowView: View {
     static let laneMin: CGFloat = 200
     static let laneIdeal: CGFloat = 460
 
-    private func benchRow(_ lane: Lane) -> some View {
+    /// O dono do grupo, na gramática do §11: caps + tracking, secundário, hairline
+    /// acima — tipografia, nunca caixa. A procedência içada mora à direita, e SÓ
+    /// quando todas as linhas do grupo compartilham fonte e carimbo.
+    private func benchGroupHeader(_ group: LedgerGroup) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: S.s2) {
+            Text(group.title.uppercased())
+                .font(.ui(T.micro, .medium))
+                .tracking(0.09 * T.micro)
+                .foregroundStyle(p.ink3)
+            Spacer(minLength: S.s1)
+            if let hoisted = group.hoistedProvenance {
+                Text(hoisted)
+                    .font(.num(T.micro))
+                    .tracking(0.03 * T.micro)
+                    .foregroundStyle(p.ink3)
+            }
+        }
+        .padding(.top, 14)
+        .padding(.bottom, 4)
+        .overlay(alignment: .top) {
+            Rectangle().fill(p.line).frame(height: 1)
+        }
+        // Organização, não leitura: cada pista se apresenta com dono e janela
+        // na fala dela — o header repetiria pro ouvido o que já foi dito.
+        .accessibilityHidden(true)
+    }
+
+    private func benchRow(_ lane: Lane, grouped: Bool = false, hoisted: Bool = false) -> some View {
         GridRow(alignment: .center) {
             // quem — escrito pro olho. Pro ouvido, quem se apresenta é a pista:
             // "Claude, janela de 5 h" abre a fala dela.
+            //
+            // Dentro de um grupo o dono já está no header: a coluna diz só a
+            // janela — "Semana", "Semana · Fable" — no peso do nome, porque
+            // ela É o nome da linha agora.
             VStack(alignment: .leading, spacing: 2) {
-                Text(lane.ownerName)
-                    .font(.ui(T.md, .medium))
-                    .foregroundStyle(p.ink0)
-                Text(lane.windowLabel)
-                    .font(.ui(T.xs))
-                    .foregroundStyle(p.ink3)
+                if grouped {
+                    Text(lane.groupedTitle)
+                        .font(.ui(T.md, .medium))
+                        .foregroundStyle(p.ink0)
+                } else {
+                    Text(lane.ownerName)
+                        .font(.ui(T.md, .medium))
+                        .foregroundStyle(p.ink0)
+                    Text(lane.windowLabel)
+                        .font(.ui(T.xs))
+                        .foregroundStyle(p.ink3)
+                }
             }
             .frame(width: Self.nameColumn, alignment: .leading)
             .accessibilityHidden(true)
@@ -365,11 +417,15 @@ public struct MainWindowView: View {
                     RangeText(lane: lane)
                         .accessibilityHidden(true)   // idem: a faixa 41–68 é dita lá
                     if lane.certainty.hasInk {
-                        Text(lane.provenanceNote)
-                            .font(.ui(T.micro))
-                            .tracking(0.05 * T.micro)
-                            .foregroundStyle(p.ink3)
-                            .accessibilityHidden(true)   // idem: a certeza abre a frase
+                        // Içada pro header do grupo, a procedência não gagueja
+                        // na linha (§11) — o carimbo é o mesmo pra todas.
+                        if !hoisted {
+                            Text(lane.provenanceNote)
+                                .font(.ui(T.micro))
+                                .tracking(0.05 * T.micro)
+                                .foregroundStyle(p.ink3)
+                                .accessibilityHidden(true)   // idem: a certeza abre a frase
+                        }
                     } else if let provider = lane.provider {
                         // A única AÇÃO da linha — e a única coisa dela que o
                         // VoiceOver ainda para. "conectar", sozinho, não diz o quê.

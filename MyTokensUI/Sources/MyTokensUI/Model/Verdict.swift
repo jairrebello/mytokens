@@ -192,9 +192,12 @@ public struct Verdict: Sendable, Equatable {
 }
 
 extension Lane {
-    /// "5 h" a partir de "Claude · 5 h"
+    /// "5 h" a partir de "Claude · 5 h". Cai o DONO, fica o resto: numa janela
+    /// qualificada por modelo ("Claude · Semana · Fable") a janela é
+    /// "Semana · Fable" — pegar só o último pedaço leria "Fable" como janela.
     var windowLabel: String {
-        title.split(separator: "·").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? title
+        let parts = title.split(separator: "·", maxSplits: 1)
+        return parts.count == 2 ? parts[1].trimmingCharacters(in: .whitespaces) : title
     }
 
     /// Quando a tinta encosta em 100%, no ritmo atual. É o relógio do aperto.

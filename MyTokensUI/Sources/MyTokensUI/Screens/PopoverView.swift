@@ -105,23 +105,71 @@ public struct PopoverView: View {
     }
 
     // MARK: - As pistas
+    //
+    // Com DUAS assinaturas no livro-razão, ele ganha donos (UI-SPEC §11): o
+    // herói continua sozinho no topo — fora de grupo, porque o veredito não é
+    // do livro-razão — e o resto se organiza sob headers tipográficos. Com uma
+    // assinatura só, a lista fica lisa como sempre foi: header órfão é um
+    // rótulo que o usuário precisa LER pra não ganhar nada.
 
     private var lanes: some View {
         VStack(spacing: 0) {
-            ForEach(snapshot.lanes) { lane in
-                row(lane)
+            if let groups = snapshot.popoverGroups {
+                if let hero = snapshot.tightest {
+                    row(hero)
+                }
+                ForEach(groups) { group in
+                    groupHeader(group)
+                    ForEach(group.lanes) { lane in
+                        row(lane, grouped: true, hoisted: group.hoistedProvenance != nil)
+                    }
+                }
+            } else {
+                ForEach(snapshot.lanes) { lane in
+                    row(lane)
+                }
             }
         }
         .padding(.horizontal, S.s4)
         .padding(.bottom, S.s2)
     }
 
-    private func row(_ lane: Lane) -> some View {
+    /// O dono do grupo — tipografia, nunca caixa (§11): caps pequenas com
+    /// tracking, secundário, hairline acima. A procedência içada mora à
+    /// direita, e SÓ quando todas as linhas do grupo compartilham o carimbo.
+    private func groupHeader(_ group: LedgerGroup) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: S.s2) {
+            Text(group.title.uppercased())
+                .font(.ui(T.micro, .medium))
+                .tracking(0.09 * T.micro)
+                .foregroundStyle(p.ink3)
+            Spacer(minLength: S.s1)
+            if let hoisted = group.hoistedProvenance {
+                Text(hoisted)
+                    .font(.num(T.micro))
+                    .tracking(0.03 * T.micro)
+                    .foregroundStyle(p.ink3)
+            }
+        }
+        .padding(.top, 14)
+        .padding(.bottom, 2)
+        .overlay(alignment: .top) {
+            Rectangle().fill(p.line).frame(height: 1)
+        }
+        // O header é organização, não leitura: cada pista já se apresenta com
+        // dono e janela na fala dela. Repetir "Claude" aqui pro VoiceOver
+        // seria dizer duas vezes o que a pista diz melhor.
+        .accessibilityHidden(true)
+    }
+
+    private func row(_ lane: Lane, grouped: Bool = false, hoisted: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             // Título e número são a MESMA informação que a pista já fala, escrita
             // pro olho. Escondidos do VoiceOver: quem lê a pista é a pista.
             HStack(alignment: .firstTextBaseline) {
-                Text(lane.title)
+                // Dentro de um grupo o dono já está no header — a linha diz só
+                // a janela: "5 h", "Semana · Fable". Fora, o título inteiro.
+                Text(grouped ? lane.groupedTitle : lane.title)
                     .font(.ui(T.sm, .medium))
                     .foregroundStyle(p.ink0)
                     .lineLimit(1)          // o TÍTULO cede, não o dado
@@ -137,7 +185,7 @@ public struct PopoverView: View {
                 .padding(.bottom, 3)
 
             HStack(spacing: S.s2) {
-                Text(footnote(lane))
+                Text(footnote(lane, hoisted: hoisted))
                     .font(.num(T.micro))
                     .tracking(0.03 * T.micro)
                     .foregroundStyle(p.ink3)
@@ -183,18 +231,22 @@ public struct PopoverView: View {
 
     /// O rodapé de cada pista carrega a procedência em PALAVRA — o segundo
     /// canal. A textura já disse; isto confirma pra quem parou pra ler.
-    private func footnote(_ lane: Lane) -> String {
+    private func footnote(_ lane: Lane, hoisted: Bool = false) -> String {
         // O orçamento diz "estimado do disco", não só "estimado" (ver `Lane.provenanceNote`):
         // em 340 px não cabe a ressalva inteira, mas cabe o DE ONDE — e o de onde é o que
         // explica o número poder andar pra trás. A ressalva inteira mora na janela grande e
         // no painel onde ele foi definido.
-        var s = lane.provenanceNote
+        //
+        // Içada pro header do grupo (§11), a procedência não se repete na linha —
+        // o que sobra aqui é o que é SÓ desta linha: a faixa, o crédito.
+        var s = hoisted ? "" : lane.provenanceNote
+        let sep = { s.isEmpty ? "" : " · " }
         if case .absent = lane.certainty, lane.unit == .usd,
            let cap = lane.capUSD {
-            s += " · US$ \(Lane.cap(cap)) de crédito"
+            s += "\(sep())US$ \(Lane.cap(cap)) de crédito"
         }
         if let range = lane.displayRange {
-            s += " · \(range)"
+            s += "\(sep())\(range)"
         }
         return s
     }
