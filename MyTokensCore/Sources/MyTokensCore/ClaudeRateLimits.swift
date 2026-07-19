@@ -25,12 +25,17 @@ public struct ClaudeRateLimitSnapshot: Codable, Sendable {
     public var capturedAt: Date
     public var fiveHour: Window?
     public var sevenDay: Window?
-    /// Janelas ALÉM de five_hour/seven_day, chaveadas pelo nome CRU do payload
-    /// (ex: "seven_day_fable"). O ingest captura genericamente qualquer entrada de
-    /// rate_limits com used_percentage+resets_at — chave nova do Claude Code não se
-    /// perde no chão esperando a gente atualizar o parser. Emitir como LimitWindow
-    /// depende da tabela chave→(label, span, modelScope), preenchida quando a chave
-    /// real for confirmada (Sonda).
+    /// Janelas ALÉM de five_hour/seven_day, chaveadas pelo nome CRU do payload.
+    /// O ingest captura genericamente qualquer entrada de rate_limits com
+    /// used_percentage+resets_at — chave nova do Claude Code não se perde no chão
+    /// esperando a gente atualizar o parser.
+    ///
+    /// PROVADO (Sonda, 2026-07-19, schema zod do binário): HOJE o statusLine só
+    /// publica five_hour e seven_day. As janelas POR MODELO (seven_day_opus etc.)
+    /// existem SÓ nos headers HTTP, que o CLI guarda em memória — não chegam aqui.
+    /// Logo `extras` fica vazio até o Claude Code passar a publicá-las; por-modelo
+    /// hoje exigiria outra fonte (GET /api/oauth/usage — formato NÃO provado).
+    /// Não espere chave que a fonte não entrega.
     public var extras: [String: Window]? = nil
 }
 
