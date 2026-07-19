@@ -197,6 +197,9 @@ public actor ClaudeCodeCollector: UsageCollector {
     private let root: URL
     private let pricing: PricingTable
     private let rateLimits: ClaudeRateLimitReader
+    /// nil = sem token do Keychain (o Chassi ainda não plugou, ou o usuário não
+    /// consentiu). O hook statusLine sustenta as janelas da conta sozinho.
+    private let oauthUsage: ClaudeOAuthUsageSource?
     private let scanner: IncrementalScanner<ClaudeFileParser>
     private let calendar: Calendar
 
@@ -237,11 +240,13 @@ public actor ClaudeCodeCollector: UsageCollector {
         root: URL = URL(fileURLWithPath: NSHomeDirectory()).appending(path: ".claude/projects"),
         pricing: PricingTable,
         rateLimits: ClaudeRateLimitReader = ClaudeRateLimitReader(),
+        oauthUsage: ClaudeOAuthUsageSource? = nil,
         calendar: Calendar = .current
     ) {
         self.root = root
         self.pricing = pricing
         self.rateLimits = rateLimits
+        self.oauthUsage = oauthUsage
         self.scanner = IncrementalScanner(parser: ClaudeFileParser())
         self.calendar = calendar
     }
@@ -268,7 +273,14 @@ public actor ClaudeCodeCollector: UsageCollector {
         var diagnostics = diagnose(files: files.count)
         diagnostics.scan = result.stats
 
-        let windows = rateLimits.read(now: now)
+        // Hook primeiro (fonte primária, mais fresca), endpoint por cima só no que
+        // o hook não cobre — as janelas por-modelo. Endpoint falhou? Ficam as do hook.
+        var windows = rateLimits.read(now: now)
+        if let oauthUsage {
+            windows = ClaudeOAuthUsageSource.merge(
+                hook: windows, endpoint: await oauthUsage.fetch(now: now)
+            )
+        }
         let status = Aggregator.status(
             provider: .claudeCode,
             events: events,

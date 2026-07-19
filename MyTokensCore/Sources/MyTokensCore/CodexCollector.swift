@@ -421,8 +421,11 @@ public actor CodexCollector: UsageCollector {
                     source: .measured,
                     // O snapshot foi lido do rollout em `snap.ts` — NÃO é de agora.
                     // `measuredAt` carrega essa idade pra tela. O começo da janela
-                    // sai de graça: o Codex publica a duração dela.
-                    startedAt: w.resetsAt.addingTimeInterval(-Double(w.windowMinutes) * 60),
+                    // sai de graça: o Codex publica a duração dela. Duração ausente
+                    // (0) -> sem startedAt: a view fica sem cursor, não com mentira.
+                    startedAt: w.windowMinutes > 0
+                        ? w.resetsAt.addingTimeInterval(-Double(w.windowMinutes) * 60)
+                        : nil,
                     measuredAt: snap.ts,
                     measuredPercent: w.usedPercent,
                     modelScope: scope
@@ -440,6 +443,7 @@ public actor CodexCollector: UsageCollector {
         case 300:    ("5h",  "5 horas")
         case 10_080: ("7d",  "Semana")
         case 43_200: ("30d", "30 dias")
+        case ..<1:   ("w",   "Janela")  // duração ausente no payload: rótulo genérico
         default:
             minutes % 1440 == 0
                 ? ("\(minutes / 1440)d", "\(minutes / 1440) dias")
