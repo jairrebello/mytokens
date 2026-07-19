@@ -37,6 +37,10 @@ final class AppModel {
     private(set) var menuBarPin: MenuBarPin? = MenuBarPinStore.current
     /// Avisar quando uma janela cruza 85%. Persistido; nasce LIGADO.
     private(set) var notifyAt85: Bool = NotifyStore.current
+    /// Janelas por-modelo do Claude via OAuth (Keychain + endpoint). Nasce DESLIGADO:
+    /// ler credencial de outro app e mandá-la pra rede são dois gestos que só existem
+    /// depois de um clique informado. Persistido.
+    private(set) var oauthPerModel: Bool = ClaudeOAuthConsent.granted
     /// O teto de gasto mensal. Persistido, e nasce `nil`: NINGUÉM tem orçamento até dizer que
     /// tem. Um teto padrão seria o app inventando o bolso do usuário.
     private(set) var budgetUSD: Decimal? = BudgetStore.current
@@ -58,7 +62,19 @@ final class AppModel {
 
     init() {
         do {
-            engine = try MyTokensEngine()
+            // O engine nasce com a fonte OAuth SEMPRE plugada — quem liga e desliga é o
+            // consentimento, checado pelo provider a cada fetch. A alternativa (reconstruir
+            // o engine no toggle) jogaria fora o cache incremental dos collectors, que é o
+            // que faz o refresh custar milissegundos.
+            let pricing = try PricingTable.bundled()
+            engine = MyTokensEngine(collectors: [
+                ClaudeCodeCollector(
+                    pricing: pricing,
+                    oauthUsage: ClaudeOAuthUsageSource(tokens: KeychainClaudeOAuth())
+                ),
+                CodexCollector(pricing: pricing),
+                CursorCollector(),
+            ])
         } catch {
             engine = nil
             engineError = String(describing: error)
@@ -557,6 +573,72 @@ final class AppModel {
         dashboard = dashboard.withBudget(v, monthSpentUSD: Dashboard.monthSpentUSD(statuses))
     }
 
+    // MARK: - As janelas por modelo (OAuth)
+    //
+    // O mesmo contrato do hook: consentimento se pede MOSTRANDO o que vai ser feito.
+    // Aqui não tem diff de arquivo porque nada é escrito — tem os dois gestos, nomeados:
+    // ler o token do Claude Code no Keychain, e mandá-lo pra UM host da Anthropic.
+
+    private func abrirPainelOAuth() {
+        let alerta = NSAlert()
+        alerta.alertStyle = .informational
+
+        if oauthPerModel {
+            alerta.messageText = "As janelas por modelo estão LIGADAS."
+            alerta.informativeText = """
+                A cada leitura, o app pergunta à Anthropic o uso por modelo (a semana do \
+                Fable, do Opus…) usando o token OAuth que o Claude Code guarda no Keychain.
+
+                O token é lido na hora, vai num header pra api.anthropic.com, e não é \
+                copiado pra lugar nenhum — nem log, nem arquivo, nem UserDefaults.
+
+                Desligar para as duas coisas na hora. As janelas da conta (5 h, semana) \
+                continuam vindo do hook do statusLine, como sempre.
+                """
+            alerta.addButton(withTitle: "Fechar")
+            alerta.addButton(withTitle: "Desligar")
+
+            NSApp.activate(ignoringOtherApps: true)
+            guard alerta.runModal() == .alertSecondButtonReturn else { return }
+            setOAuthPerModel(false)
+        } else {
+            alerta.messageText = "Ligar as janelas por modelo do Claude?"
+            alerta.informativeText = """
+                O hook do statusLine entrega as janelas da CONTA (5 h, semana). O limite \
+                POR MODELO — a semana do Fable, do Opus — só existe num endpoint da \
+                Anthropic, atrás do seu login.
+
+                Ligar isto autoriza DUAS coisas, e só elas:
+
+                1. LER o token OAuth que o Claude Code guarda no Keychain do macOS \
+                (item "Claude Code-credentials"). O macOS ainda vai te perguntar por \
+                cima, na primeira leitura — o item é do Claude Code, não nosso.
+
+                2. ENVIAR esse token, num header, pra api.anthropic.com — o mesmo \
+                destino pra onde o próprio Claude Code o manda. Nenhum outro host, nunca.
+
+                O token não é gravado em lugar nenhum pelo MyTokens. Se a chamada \
+                falhar, as pistas por modelo simplesmente não aparecem — nada quebra.
+                """
+            alerta.addButton(withTitle: "Ligar")
+            alerta.addButton(withTitle: "Cancelar")
+
+            NSApp.activate(ignoringOtherApps: true)
+            guard alerta.runModal() == .alertFirstButtonReturn else { return }
+            setOAuthPerModel(true)
+        }
+    }
+
+    private func setOAuthPerModel(_ on: Bool) {
+        guard on != oauthPerModel else { return }
+        oauthPerModel = on
+        ClaudeOAuthConsent.granted = on   // sobrevive ao relaunch
+        // Ligou → busca agora, a pista nova aparece sem esperar o disco mexer.
+        // Desligou → o próximo collect já não chama a rede; as janelas do endpoint
+        // somem da tela na mesma coleta.
+        scheduleRefresh(delay: .zero)
+    }
+
     // MARK: - Os controles do app
 
     /// O que a `PopoverView` precisa pra desenhar o menu do rodapé.
@@ -582,6 +664,8 @@ final class AppModel {
             menuBarPinOptions: menuBarPinOptions,
             hook: hookState,
             openHookPanel: { [weak self] in self?.connect(.claudeCode) },
+            oauthPerModel: oauthPerModel,
+            openOAuthPanel: { [weak self] in self?.abrirPainelOAuth() },
             budgetUSD: budgetUSD,
             openBudgetPanel: { [weak self] in self?.abrirPainelDoOrcamento() },
             notifyAt85: notifyAt85,

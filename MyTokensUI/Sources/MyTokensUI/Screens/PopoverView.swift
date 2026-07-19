@@ -387,6 +387,15 @@ struct AppMenu: View {
             case .indeciso:
                 EmptyView()   // sem settings.json legível não há o que oferecer. Silêncio > chute.
             }
+            // As janelas por-modelo (OAuth). Vizinha do hook porque é a MESMA família de
+            // gesto — o app tocando algo que é do usuário — e o rótulo carrega o estado
+            // pelo mesmo motivo: quem ligou tem direito de ver que está ligado sem clicar.
+            Button(
+                controls.oauthPerModel
+                    ? "Janelas por modelo: ligadas…"
+                    : "Janelas por modelo do Claude…",
+                action: controls.openOAuthPanel
+            )
 
             Divider()
             // O aviso de 85% (UI-SPEC §7). Se o macOS barrou, o menu NÃO deixa um ✓ ligado

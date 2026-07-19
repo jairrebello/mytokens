@@ -49,6 +49,15 @@ public struct AppControls {
     /// pro mesmo cômodo, não um segundo cômodo.
     public var openHookPanel: () -> Void
 
+    /// As janelas por-modelo do Claude (OAuth do Keychain + endpoint da Anthropic).
+    /// Mora no menu pelo MESMO motivo do hook: quando tudo funciona, é o único lugar
+    /// de onde dá pra DESLIGAR o que se ligou. Nasce desligado — credencial de outro
+    /// app só se toca depois de um clique informado.
+    public var oauthPerModel: Bool
+    /// Abre o painel do consentimento: o que é lido, pra onde vai, e o verbo que
+    /// couber ao estado (ligar / desligar).
+    public var openOAuthPanel: () -> Void
+
     /// O teto de gasto mensal, em US$. `nil` = NÃO EXISTE orçamento.
     ///
     /// E "não existe" não é "zero". Sem teto não há pista de orçamento na tela — não há uma
@@ -90,6 +99,8 @@ public struct AppControls {
         menuBarPinOptions: [MenuBarPinOption] = [],
         hook: HookState = .indeciso,
         openHookPanel: @escaping () -> Void = {},
+        oauthPerModel: Bool = false,
+        openOAuthPanel: @escaping () -> Void = {},
         budgetUSD: Decimal? = nil,
         openBudgetPanel: @escaping () -> Void = {},
         notifyAt85: Bool = true,
@@ -111,6 +122,8 @@ public struct AppControls {
         self.menuBarPinOptions = menuBarPinOptions
         self.hook = hook
         self.openHookPanel = openHookPanel
+        self.oauthPerModel = oauthPerModel
+        self.openOAuthPanel = openOAuthPanel
         self.budgetUSD = budgetUSD
         self.openBudgetPanel = openBudgetPanel
         self.notifyAt85 = notifyAt85
