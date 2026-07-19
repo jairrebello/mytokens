@@ -550,7 +550,141 @@ Regras que o core **tem** que respeitar, ou o design mente:
 
 ---
 
-## 11. Pendências que travam pixel
+## 11. Agrupamento por assinatura — o livro-razão ganha donos
+
+Uma assinatura pode ter **várias** janelas (Claude: 5 h + semana + semana só do Fable). Janelas
+soltas obrigam o usuário a re-derivar "de quem é essa linha" a cada leitura. A partir de agora,
+**o livro-razão agrupa por assinatura** — no popover E na janela principal.
+
+**O herói NÃO entra em grupo nenhum.** Continua sendo a janela mais apertada, window-first,
+sozinha no topo.
+*Porquê: a pergunta "posso continuar?" é respondida por UMA janela. Colocar o herói dentro de um grupo o rebaixa a linha de lista. O agrupamento organiza o livro-razão; o veredito não é dele.*
+
+### A chave do grupo é a ASSINATURA, não a string do provedor
+
+O grupo é a conta (`subscription`): "Claude · Max", "Codex", "Cursor". Duas contas do mesmo
+provedor = dois grupos, desambiguados pelo e-mail da conta.
+*Porquê: o limite pertence à assinatura. É ela que reseta, é ela que o usuário paga.*
+
+### Anatomia do grupo — tipografia, nunca caixa
+
+```
+─────────────────────────────────────  hairline separatorColor
+CLAUDE · MAX            statusLine 14:35
+  Semana          ████████░░░░░░░  62%
+  Semana · Fable  ██████░░░░░░░░░  41%
+```
+
+| Elemento | Como | Porquê |
+|---|---|---|
+| Header | caps pequenas, `caption` + tracking, `.secondary`. **Sem fundo, sem borda, sem caixa.** Hairline `separatorColor` acima. | caixa-dentro-de-caixa é morte súbita (§9). Hierarquia por tipografia e espaço. |
+| Direita do header | plano (`Max`) + `asOf`, **só quando todas as linhas do grupo compartilham fonte e carimbo**. Senão, `asOf` volta pra cada linha. | hoisting de metadado repetido limpa a linha; hoisting de metadado divergente mente. |
+| Linhas | as pistas de meia altura de sempre. Gramática intocada: graduação, tinta, reticulado. | o agrupamento muda a ORDEM da lista, não o desenho de nenhuma barra. |
+
+### Rótulo da janela com escopo de modelo
+
+`Semana` (todos os modelos) vs `Semana · Fable`. **Janela primeiro, modelo como qualificador
+depois do middot.** Nunca "Fable" sozinho como nome de linha.
+*Porquê: o eixo do app é a janela; o modelo é escopo dela. "Fable" sozinho leria como provedor.*
+
+O statusLine **não** entrega `seven_day` por modelo (só nos headers/endpoint — `fontes-de-dados`).
+Logo a linha por-modelo só existe quando a fonte a entrega, com a certeza que a fonte dá.
+**Nunca fabricar um recorte por modelo somando tokens** (regra 5 do §10 já proíbe).
+
+### Ordenação — a folga continua mandando
+
+1. **Grupos** ordenados pela janela mais apertada que contêm.
+2. **Dentro do grupo**, linhas por folga.
+3. A linha do herói **não se repete** no livro-razão. O grupo dela mostra as restantes;
+   grupo que ficaria vazio some da lista.
+
+*Porquê: agrupar não pode custar a ordenação por urgência — ela é o motivo da tela existir. O grupo é pasta, não fila nova.*
+
+### Onde o header aparece
+
+| Superfície | Regra |
+|---|---|
+| Janela principal | headers **sempre**. Cursor sem credencial = grupo com a linha "conectar" (estado `.absent` de sempre). |
+| Popover | headers só quando **≥ 2 assinaturas** têm linha no livro-razão. Uma assinatura só → lista lisa, sem header. Cursor ausente segue como ressalva do veredito, não como grupo. |
+
+*Porquê: no popover, um header órfão é um rótulo que o usuário precisa LER pra não ganhar nada — falha o relance de 2 s.*
+
+### Certeza é POR LINHA, nunca por grupo
+
+Dentro da mesma assinatura, `5 h` pode ser medido (statusLine) e `Semana · Fable` inferido
+(endpoint frio). O header jamais carrega selo de certeza.
+*Porquê: um selo no header afirmaria sobre todas as linhas o que só é verdade de algumas.*
+
+### Contrato (adição ao §10)
+
+```swift
+struct LimitWindow {
+    // ... campos existentes ...
+    let account: String        // chave do grupo: "claude:jairrebello", "codex:default"
+    let planLabel: String?     // "Max" — direita do header
+    let modelScope: String?    // nil = todos os modelos; "Fable" → rótulo "Semana · Fable"
+    // id ganha o escopo: "claude.7d", "claude.7d.fable"
+}
+```
+
+---
+
+## 12. % na barra de menu — opt-in, e a barra conta a MESMA história
+
+Preferência do usuário: um número ao lado da proveta no status item. **Default: DESLIGADO.**
+*Porquê: a barra de menu é território do usuário; a proveta já responde por densidade de tinta. Número é upgrade de precisão pra quem pede, não imposição.*
+
+### Qual número
+
+**Automático (default quando ligado): a janela do herói** — a mais apertada.
+*Porquê: barra, popover e janela respondem a mesma pergunta com o MESMO número. Abrir o popover explica o número da barra, nunca o contradiz.*
+
+O usuário pode **fixar** uma janela específica (Ajustes → picker):
+
+```
+Mostrar na barra:  ( ) Automática — a que aperta primeiro     ← default
+                   ( ) Claude · 5 h
+                   ( ) Claude · Semana
+                   ( ) Claude · Semana · Fable
+                   ( ) Codex · Semana
+```
+
+Janela fixada que ficou `.absent` ou deixou de existir → a barra volta pra Automática
+(preferência preservada; o picker marca a fixada como indisponível).
+*Porquê: a barra não pode ficar travada num fantasma, e apagar a escolha do usuário porque a fonte piscou seria pior.*
+
+### Formato
+
+| Caso | Barra mostra | Porquê |
+|---|---|---|
+| Medido | `37%` | inteiro, sem espaço, sem decimal. Relance. |
+| Inferido | `~37%` | o til é a marca de palpite do app inteiro (§7). |
+| `.absent` | **nada** — só a proveta | número ausente ≠ zero. `0%` aqui é a mentira do §9. |
+| ≥ 100 | `104%` | o número real. O alarme é da proveta (régua acima da boca), não do texto. |
+| `monthlyUSD` (Cursor) | `$6,4` | §13.2: US$ nunca vira `%` solto. Na barra, o dólar É a forma compacta honesta. |
+
+### Regras de desenho (Chassi)
+
+- `NSStatusItem` com `image` (proveta template, intocada) + `title`. Ícone à esquerda, número à direita.
+- Fonte: `NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)`.
+  *Porquê: sem `monospacedDigit`, cada tick faz o número dançar — §9 já proíbe.*
+- **Sem cor, sem bold aos 85%, sem piscar.** O texto segue o tint do sistema como o template.
+  *Porquê: a tensão é da tinta da proveta. Um número que engorda ou cora é semáforo disfarçado.*
+- Largura: aceitar o resize natural quando muda a contagem de dígitos (9→10, 99→100). Não
+  reservar slot fixo de `~100%`.
+  *Porquê: um slot sempre largo cobra espaço da barra o tempo todo pra evitar um pulo que acontece uma vez por janela.*
+- Atualiza junto com o ícone, troca seca de `title`. Sem animação de texto.
+
+### Preferências (Chassi)
+
+```
+menuBarShowsPercent   Bool     default false
+menuBarPinnedWindowID String?  default nil (= Automática)  // id do LimitWindow, ex. "claude.7d.fable"
+```
+
+---
+
+## 13. Pendências que travam pixel
 
 1. **Cursor.** `docs/CURSOR.md`: o Sextante **não confirmou o endpoint ao vivo** — o shape é *PROVÁVEL*. Enquanto não confirmar: **`.absent` permanente**, com a ação "conectar". **Nunca inventar número.**
 2. **Unidade do Cursor é US$, não %.** A pista normalizada aguenta (gasto ÷ crédito = fração). Mas o **rótulo tem que dizer `US$ 6,40 / 20`**, nunca `32%` sozinho. *Porquê: 32% de um crédito em dólar e 32% de uma cota opaca não são a mesma coisa, e fingir que são é exatamente a mentira que este spec inteiro existe pra matar.*
