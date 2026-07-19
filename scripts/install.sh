@@ -63,6 +63,13 @@ cp -R "$BUILT" "$DEST"
 # Sem isto o Gatekeeper trata a cópia como "baixada da internet" e mostra o susto.
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 
+# O bundle que ficou pra trás no DerivedData é o motivo do Launchpad encher de
+# "MyTokens" duplicado: o Spotlight indexa QUALQUER .app do disco, e cada build
+# ressuscita um. Instalado, o de build morre — o próximo xcodebuild o recria do
+# zero sem custo. (O mesmo vale pro build/ do repo, se algum xcodebuild -target
+# tiver deixado um lá.)
+rm -rf "$BUILT" build/*/MyTokens.app 2>/dev/null || true
+
 echo "==> $(defaults read "$DEST/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?') instalado"
 
 if [ "${1:-}" != "--no-open" ]; then
