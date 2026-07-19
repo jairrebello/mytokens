@@ -133,7 +133,7 @@ public struct DayRack: View {
                 if let c = days[i].costUSD {
                     Text(Verdict.usd(c))
                         .font(p.num(T.lg, .medium))
-                        .foregroundStyle(p.ink0)
+                        .foregroundStyle(p.numberInk ?? p.ink0)
                 } else {
                     // O dia sem registro NÃO vira "US$ 0,00" nem no visor. Ele vira a
                     // mesma palavra que a pista ausente usa há três telas.
@@ -151,7 +151,7 @@ public struct DayRack: View {
                 // tem é o oposto disso: nenhuma prova de coisa nenhuma.
                 Text(history.hasAnyRecord ? Verdict.usd(history.totalUSD) : "—")
                     .font(p.num(T.lg, .medium))
-                    .foregroundStyle(history.hasAnyRecord ? p.ink0 : p.ink4)
+                    .foregroundStyle(history.hasAnyRecord ? (p.numberInk ?? p.ink0) : p.ink4)
                     .numericValueTransition()
             }
         }
@@ -235,8 +235,8 @@ public struct DayRack: View {
                     // pricing.json. A listra deita porque a tinta sobe (ver Hatch) — e o piso
                     // de 2 pt existe porque um dia de US$ 0,03 é um dia que ACONTECEU: ele
                     // merece um traço de tinta, não um arredondamento pra invisível.
-                    // `laneLive/laneCold`: no Console o ember é red de marca, e
-                    // red nunca pinta dado — a paleta resolve a tinta, não a view.
+                    // `laneLive/laneCold`: a tinta do dado é decisão da PALETA
+                    // (no Console, red de marca) — a view não escolhe cor.
                     Hatch(color: isToday && history.liveToday ? p.laneLive : p.laneCold,
                           horizontal: true)
                         .frame(width: w, height: max(2, h * v / scale.max))

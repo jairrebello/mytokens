@@ -54,11 +54,17 @@ public struct Palette: Sendable {
     /// Liga tudo junto de propósito: é UMA identidade, não quatro toggles.
     public var console: Bool = false
 
-    /// Tinta da pista quando o tema separa DADO de CHROME. `nil` = o ember é a
-    /// tinta, como sempre foi. No Console a tinta é bone (#EDEDED) e o ember
-    /// vira o red de marca — que nunca pode pintar um dado.
+    /// Tinta da pista quando o tema tem tinta PRÓPRIA de dado. `nil` = o ember
+    /// é a tinta, como sempre foi. No Console o dado também fala red — a marca
+    /// pinta tudo; o que separa dado de chrome lá é GEOMETRIA, não matiz.
     public var laneInkLive: Color?
     public var laneInkCold: Color?
+
+    /// Tinta do NÚMERO medido (os "5%", "US$ 3,63", a SOMA). `nil` = a escada
+    /// de inks de sempre (ink2→ink0 por calor). O Console põe red: o número É
+    /// o dado, e lá o dado fala a cor da marca. O estouro (emberHot) e o
+    /// fantasma (ink4) não passam por aqui — significado antes de estilo.
+    public var numberInk: Color?
 
     /// A tinta que as views usam de fato. Um caminho só — nenhuma view decide
     /// sozinha se o tema separa dado de chrome.

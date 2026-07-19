@@ -592,7 +592,7 @@ public struct MainWindowView: View {
                 // "US$ 4.608,00". Dois jeitos de escrever o mesmo dinheiro na mesma tela.
                 Text(Verdict.usd(snapshot.todayCostUSD))
                     .font(p.num(T.sm))
-                    .foregroundStyle(p.ink1)
+                    .foregroundStyle(p.numberInk ?? p.ink1)
             }
             // "US$" é sigla pro olho. Pro ouvido é "dólares" — e o valor continua
             // sendo o gasto do dia, nunca "quanto sobra".

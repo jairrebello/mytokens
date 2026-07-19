@@ -29,8 +29,8 @@ public struct LaneView: View {
         self.showNeedle = showNeedle
     }
 
-    // `laneLive/laneCold`, não `ember/emberCold` direto: no tema Console o ember
-    // é o red de marca e red nunca pinta dado — a paleta resolve, não a view.
+    // `laneLive/laneCold`, não `ember/emberCold` direto: a tinta do dado é
+    // decisão da PALETA (no Console, red de marca) — a view não escolhe cor.
     private var inkColor: Color { lane.isLive ? p.laneLive : p.laneCold }
 
     public var body: some View {

@@ -38,12 +38,16 @@ public struct ValueText: View {
 
     private var color: Color {
         guard lane.certainty.hasInk else { return p.ink4 }   // o `—` é fantasma
+        if case .over = lane.heat { return p.emberHot }      // estouro fala primeiro
+        // Tema com tinta própria de número (Console: red) ganha da escada de
+        // calor — lá o calor continua no PESO e no brilho do trilho.
+        if let n = p.numberInk { return n }
         switch lane.heat {
         case .idle: return p.ink2
         case .low:  return p.ink1
         case .mid:  return p.ink0
         case .high: return p.ink0
-        case .over: return p.emberHot   // a ÚNICA vez que o número tem matiz
+        case .over: return p.emberHot   // inalcançável; o compilador quer o caso
         }
     }
 

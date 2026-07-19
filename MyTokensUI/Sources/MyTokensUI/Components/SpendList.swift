@@ -145,7 +145,7 @@ public struct SpendList: View {
 
             Text(Verdict.usd(cut.costUSD))
                 .font(p.num(T.sm, .medium))
-                .foregroundStyle(p.ink0)
+                .foregroundStyle(p.numberInk ?? p.ink0)
                 .gridColumnAlignment(.trailing)
                 .fixedSize(horizontal: true, vertical: false)   // dado não trunca. NUNCA.
         }

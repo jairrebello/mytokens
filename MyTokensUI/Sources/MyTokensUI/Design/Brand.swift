@@ -4,15 +4,17 @@
 //  É o visual dos apps DOWNLOADER e LISTENER OS do Jair, entrando aqui como
 //  tema selecionável (norte-ux, "TEMA-BRAND"). O default continua o Bancada.
 //
-//  A REGRA QUE SALVA O TEMA: red é CHROME — título, botão, badge, foco,
-//  seleção. Red NUNCA é estado de dado. A tinta de dado é #EDEDED, sempre; o
-//  único red permitido perto de um dado é o excedente ≥100%, que já é
-//  geometria fora do trilho (o alarme é a hachura rompendo o limite, não a
-//  cor). Se red virasse tinta, o app inteiro gritaria e o alarme ficava mudo.
+//  A REGRA DO TEMA: red em TUDO que fala — rótulo, barra, número, história.
+//  É o visual dos apps de referência: red sobre preto, sem meio-termo. O que
+//  diferencia dado de chrome aqui é GEOMETRIA e peso (trilho vs caps com
+//  tracking), nunca matiz. E o alarme de estouro continua tendo voz própria:
+//  ele sempre foi a hachura rompendo o limite do trilho — geometria — então
+//  seguir red não o emudece.
 //
-//  Por isso este tema é o motivo de `laneInkLive/laneInkCold` existirem na
-//  paleta: aqui o slot `ember` carrega o red DE MARCA (o "conectar", o pulso
-//  do vazio, a seleção do dia) — e as pistas pintam com bone, não com ele.
+//  `laneInkLive/laneInkCold/numberInk` existem pra isso: o tema declara a
+//  tinta do dado na PALETA e nenhuma view decide sozinha. Texto corrido
+//  (veredito, nomes, meta) segue a graduação de cinzas — red vibra demais
+//  pra parágrafo; o resto é da marca.
 //
 //  Console é DARK-ONLY como o Terminal: um console claro é uma contradição.
 //  E é OPACO — exceção consciente à vibrancy do popover: a identidade do
@@ -94,23 +96,25 @@ extension Palette {
         ink3: Color(hex: 0x5C5C5C),
         ink4: Color(hex: 0x3A3A3A),
 
-        // ember = o RED de marca, e ele só alcança CHROME: o "conectar", o
-        // pulso do estado vazio, a seleção. As pistas nem o veem — a tinta
-        // delas sai de laneInk* logo abaixo.
+        // ember = o RED de marca: chrome E dado falam a mesma cor aqui. O que
+        // separa os dois é geometria (rótulo caps vs trilho vs número), não
+        // matiz — é o visual DOWNLOADER/LISTENER: red em cima de preto, tudo.
         emberCold: Color(hex: 0x9A9A9A),
         ember:     brandRed,
-        // ESTOURO: o único red que encosta em dado — e ele já mora FORA do
-        // trilho, como hachura. O alarme é geometria; a cor só o assina.
+        // ESTOURO: continua sendo a hachura FORA do trilho — o alarme segue
+        // sendo geometria; num tema todo red, é a ÚNICA coisa que resta pra ele.
         emberHot:  brandRed,
-        emberGlow: Color(hex: 0xEDEDED, alpha: 0.22),   // o brilho do cap vivo é do feixe, não do red
+        emberGlow: Color(hex: 0xFF2B2B, alpha: 0.30),   // o cap vivo brilha red
         isDark: true,
 
         monoUI: true,
         console: true,
 
-        // TINTA DE DADO: #EDEDED. NUNCA red. Calor continua sendo BRILHO,
-        // como no Terminal: parado é um bone mais apagado, vivo é o cheio.
-        laneInkLive: Color(hex: 0xEDEDED),
-        laneInkCold: Color(hex: 0xC9C9C9)
+        // TINTA DE DADO: red. Vivo é o red cheio da marca; parado é um red
+        // assentado — calor continua sendo brilho, só que dentro do vermelho.
+        laneInkLive: brandRed,
+        laneInkCold: Color(hex: 0xA82222),
+        // E o NÚMERO também: "5%", "US$ 3,63", a SOMA — dado fala red.
+        numberInk: brandRed
     )
 }
