@@ -65,6 +65,13 @@ public struct Palette: Sendable {
     public var laneLive: Color { laneInkLive ?? ember }
     public var laneCold: Color { laneInkCold ?? emberCold }
 
+    /// A tinta dos RÓTULOS de chrome — os caps com tracking ("JANELA", "FONTE",
+    /// os headers de grupo, "SOMA", "HOJE"). No Console eles falam a língua da
+    /// marca: red, como os "⌐ TARGET / CONFIG / QUEUE" dos apps do Jair. Rótulo
+    /// é chrome, e chrome pode gritar; o VALOR ao lado continua em tinta de
+    /// dado. Nos outros temas, o ink3 de sempre.
+    public var labelInk: Color { console ? ember : ink3 }
+
     // MARK: - Fonte via paleta
     //
     // `.font(.ui(...))` era estático e servia enquanto todo tema usava as duas

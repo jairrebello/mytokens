@@ -152,7 +152,7 @@ public struct PopoverView: View {
             Text(group.title.uppercased())
                 .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
+                .foregroundStyle(p.labelInk)
             Spacer(minLength: S.s1)
             if let hoisted = group.hoistedProvenance {
                 Text(hoisted)

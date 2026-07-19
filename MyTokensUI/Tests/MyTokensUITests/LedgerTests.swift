@@ -69,6 +69,20 @@ struct LedgerTests {
         #expect(ledger[0].lanes.map(\.id) == ["cB", "cA"])
     }
 
+    @Test("o grupo do herói herda a folga dele — a família fica junta, logo abaixo")
+    func heroGroupStaysAdjacent() {
+        // Claude 5h é o herói (folga -30). A Semana do Claude tem folga +40 —
+        // pior que a do Codex (+5). Sem a herança, CLAUDE afundaria pro fim
+        // e "Semana" ficaria longe do "5 h" lá do topo.
+        let hero = lane(id: "c5", window: "5 h", used: 80, now: 0.5)
+        let week = lane(id: "c7", window: "Semana", used: 10, now: 0.5)
+        let x = lane(id: "x7", provider: .codex, window: "Semana", used: 45, now: 0.5)
+        let dash = Dashboard(lanes: [hero, week, x])
+
+        #expect(dash.tightest?.id == "c5")
+        #expect(dash.ledger.map(\.id) == ["claude-code", "codex"])
+    }
+
     @Test("procedência iça só com fonte e carimbo unânimes")
     func hoisting() {
         let at = Date(timeIntervalSince1970: 1_700_000_000)

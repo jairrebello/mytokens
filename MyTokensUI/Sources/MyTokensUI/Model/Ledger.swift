@@ -86,9 +86,16 @@ extension Dashboard {
             )
         }
 
-        groups.sort {
-            (Self.tightestSlack($0)) < (Self.tightestSlack($1))
+        // A folga do HERÓI conta pro grupo DELE. Sem isto, o grupo perde a
+        // janela mais apertada pro topo e afunda no fim da lista — "Claude ·
+        // 5 h" como herói e "Semana" do Claude três grupos abaixo, longe da
+        // família. Com o herói contando, o grupo dele encosta logo embaixo.
+        let heroKey = tightest.map(Self.groupKey)
+        let heroSlack = tightest?.slackPoints ?? .infinity
+        func orderingSlack(_ g: LedgerGroup) -> Double {
+            g.id == heroKey ? min(Self.tightestSlack(g), heroSlack) : Self.tightestSlack(g)
         }
+        groups.sort { orderingSlack($0) < orderingSlack($1) }
         return groups
     }
 

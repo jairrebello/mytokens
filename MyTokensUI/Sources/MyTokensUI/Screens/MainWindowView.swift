@@ -179,7 +179,7 @@ public struct MainWindowView: View {
             Text(label.uppercased())
                 .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
+                .foregroundStyle(p.labelInk)
             Text(value)
                 .font(p.num(T.lg, hot ? .semibold : .regular))
                 .foregroundStyle(hot ? p.emberHot : p.ink1)
@@ -302,7 +302,7 @@ public struct MainWindowView: View {
             Text("JANELA")
                 .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
+                .foregroundStyle(p.labelInk)
                 .frame(width: Self.nameColumn, alignment: .leading)
 
             ZStack(alignment: .leading) {
@@ -326,7 +326,7 @@ public struct MainWindowView: View {
             Text("FONTE")
                 .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
+                .foregroundStyle(p.labelInk)
                 // É esta coluna que o Grid dimensiona pelo MAIOR número da tela. O
                 // `.trailing` é declarado UMA vez, aqui, e vale pra coluna inteira.
                 .gridColumnAlignment(.trailing)
@@ -369,7 +369,7 @@ public struct MainWindowView: View {
             Text(group.title.uppercased())
                 .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
+                .foregroundStyle(p.labelInk)
             Spacer(minLength: S.s1)
             if let hoisted = group.hoistedProvenance {
                 Text(hoisted)
@@ -465,7 +465,11 @@ public struct MainWindowView: View {
         // Continua sendo a MARGEM que encolhe, nunca o que cada pista diz — a mesma troca que
         // a história já tinha feito. E ainda sobra folga: o que fixa a altura da linha é a
         // coluna do nome (~36 pt), e a agulha do "agora" (34 pt) continua cabendo inteira.
-        .padding(.vertical, S.s2)
+        //
+        // DENTRO de um grupo o ar cai pra s1: as janelas da MESMA assinatura são
+        // uma família — "Semana" e "5 h" do Claude se leem juntas, não como duas
+        // linhas soltas. O que separa famílias é o header, não o vão.
+        .padding(.vertical, grouped ? S.s1 : S.s2)
     }
 
     // MARK: - O passado
@@ -578,7 +582,7 @@ public struct MainWindowView: View {
                 Text("HOJE")
                     .font(p.ui(T.micro, .medium))
                     .tracking(0.09 * T.micro)
-                    .foregroundStyle(p.ink3)
+                    .foregroundStyle(p.labelInk)
                 // Custo é a ÚNICA coisa que a soma de token pode virar.
                 // Ela NUNCA vira "quanto sobra" — ninguém publica o teto em token.
                 //

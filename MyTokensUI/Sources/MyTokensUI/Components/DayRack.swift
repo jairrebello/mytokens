@@ -112,7 +112,7 @@ public struct DayRack: View {
             Text("ÚLTIMOS 30 DIAS")
                 .font(p.ui(T.micro, .medium))
                 .tracking(0.09 * T.micro)
-                .foregroundStyle(p.ink3)
+                .foregroundStyle(p.labelInk)
 
             Spacer(minLength: S.s4)
 
@@ -145,7 +145,7 @@ public struct DayRack: View {
                 Text("SOMA")
                     .font(p.ui(T.micro, .medium))
                     .tracking(0.09 * T.micro)
-                    .foregroundStyle(p.ink3)
+                    .foregroundStyle(p.labelInk)
                 // Sem UM dia de registro no período, a soma não é `US$ 0,00` — é `—`.
                 // Zero seria afirmar que você não gastou nada em 30 dias, e o que a gente
                 // tem é o oposto disso: nenhuma prova de coisa nenhuma.

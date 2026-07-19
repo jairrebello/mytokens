@@ -73,7 +73,7 @@ public struct SpendList: View {
                 Text(title)
                     .font(p.ui(T.micro, .medium))
                     .tracking(0.09 * T.micro)
-                    .foregroundStyle(p.ink3)
+                    .foregroundStyle(p.labelInk)
 
                 // O escopo muda, o rótulo não pode ficar calado sobre isso. Fonte
                 // solta (sem tracking de caixa-alta): é aviso, não título.
